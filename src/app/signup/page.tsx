@@ -1,6 +1,8 @@
 import { SignUp } from "@clerk/nextjs";
 import { PostHogPageEvent } from "@/components/posthog-page-event";
 
+export const dynamic = 'force-dynamic';
+
 export default function SignupPage() {
   return (
     <main className="page-shell auth-shell" id="signup">
