@@ -1,16 +1,16 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { currentUser } from "@clerk/nextjs/server";
 
-import { auth } from "@/auth";
 import { getOAuthAccessToken, baseUrl } from "@/lib/oauth";
 import { validateMcpOAuthToken } from "@/mcp/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const clerkUser = await currentUser();
 
-  if (!session?.user?.email) {
+  if (!clerkUser?.primaryEmailAddress?.emailAddress) {
     return Response.json(
       {
         error: "unauthorized",
@@ -38,8 +38,9 @@ export async function POST(request: Request) {
   }
 
   const record = await getOAuthAccessToken(accessToken);
+  const userEmail = clerkUser.primaryEmailAddress.emailAddress;
 
-  if (!record || record.userEmail?.toLowerCase() !== session.user.email.toLowerCase()) {
+  if (!record || record.userEmail?.toLowerCase() !== userEmail.toLowerCase()) {
     return Response.json(
       {
         error: "invalid_token",

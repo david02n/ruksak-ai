@@ -1,21 +1,21 @@
 import { redirect } from "next/navigation";
+import { currentUser } from "@clerk/nextjs/server";
 
-import { auth } from "@/auth";
 import { createMcpTokenForUser, ensureUserRecord } from "@/lib/ruksak-users";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = await auth();
+  const clerkUser = await currentUser();
 
-  if (!session?.user?.email) {
+  if (!clerkUser?.primaryEmailAddress?.emailAddress) {
     redirect("/login");
   }
 
   const user = await ensureUserRecord({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image
+    email: clerkUser.primaryEmailAddress.emailAddress,
+    name: clerkUser.fullName,
+    image: clerkUser.imageUrl
   });
 
   if (!user) {

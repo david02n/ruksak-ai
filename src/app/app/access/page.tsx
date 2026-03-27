@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth } from "@/auth";
+import { currentUser } from "@clerk/nextjs/server";
 import { AppShell } from "@/components/app-shell";
 import { ensureUserRecord, listMcpTokensForUser } from "@/lib/ruksak-users";
 
@@ -10,14 +10,14 @@ type AccessPageProps = {
 };
 
 export default async function AccessPage({ searchParams }: AccessPageProps) {
-  const session = await auth();
+  const clerkUser = await currentUser();
 
-  if (!session?.user?.email) {
+  if (!clerkUser?.primaryEmailAddress?.emailAddress) {
     return (
       <AppShell
         eyebrow="Access"
         title="You need to sign in first"
-        copy="Sign in with Google before creating an MCP access token."
+        copy="Sign in before creating an MCP access token."
       >
         <div className="cta-row">
           <Link className="button" href="/login">
@@ -29,9 +29,9 @@ export default async function AccessPage({ searchParams }: AccessPageProps) {
   }
 
   const user = await ensureUserRecord({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image
+    email: clerkUser.primaryEmailAddress.emailAddress,
+    name: clerkUser.fullName,
+    image: clerkUser.imageUrl
   });
 
   if (!user) {
