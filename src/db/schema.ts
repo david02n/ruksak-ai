@@ -18,7 +18,6 @@ export const users = pgTable("users", {
   primaryEmail: varchar("primary_email", { length: 320 }).notNull(),
   imageUrl: text("image_url"),
   status: varchar("status", { length: 32 }).default("active").notNull(),
-  onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 });
