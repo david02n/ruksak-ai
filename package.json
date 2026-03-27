@@ -1,0 +1,45 @@
+{
+  "name": "ruksak-ai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "./node_modules/next/dist/bin/next dev",
+    "build": "./node_modules/next/dist/bin/next build",
+    "start": "./node_modules/next/dist/bin/next start",
+    "lint": "./node_modules/next/dist/bin/next lint",
+    "typecheck": "./node_modules/typescript/bin/tsc --noEmit",
+    "test:auth": "node --test --experimental-strip-types src/mcp/auth.test.ts",
+    "test:analysis": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/lib/context-analysis.test.ts",
+    "test:router": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/lib/context-routing.test.ts",
+    "test:risk": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/lib/update-risk.test.ts",
+    "test:oauth": "node --test --experimental-strip-types src/lib/oauth-core.test.ts",
+    "test:resolution": "node --test --experimental-strip-types src/mcp/project-resolution.test.ts",
+    "test:open-ruksak": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/mcp/open-ruksak-composition.test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "mcp:smoke": "node ./scripts/mcp-smoke.cjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.1",
+    "ioredis": "^5.10.1",
+    "next": "^15.3.0",
+    "next-auth": "^4.24.13",
+    "pg": "^8.20.0",
+    "posthog-js": "^1.363.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/pg": "^8.18.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.23.0",
+    "eslint-config-next": "^15.3.0",
+    "typescript": "^5.8.3"
+  }
+}

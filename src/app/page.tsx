@@ -1,0 +1,76 @@
+import { landingCopy } from "@/content/landing";
+import { LogoMark } from "@/components/logo-mark";
+import { McpCopyButton } from "@/components/mcp-copy-button";
+import { PostHogPageEvent } from "@/components/posthog-page-event";
+import Link from "next/link";
+
+export default function HomePage() {
+  return (
+    <main className="simple-landing">
+      <PostHogPageEvent event="landing_page_viewed" />
+      <section className="simple-hero">
+        <div className="simple-logo">
+          <LogoMark priority size={44} />
+          <span>{landingCopy.logo}</span>
+        </div>
+
+        <h1 className="simple-title">{landingCopy.snapLine}</h1>
+        <p className="simple-why">{landingCopy.whyThisExists}</p>
+        <div className="cta-row">
+          <Link className="button" href="/login#signin">
+            Sign in
+          </Link>
+          <Link className="button-secondary" href="/login#signup">
+            Sign up
+          </Link>
+        </div>
+
+        <section className="simple-card">
+          <span className="simple-label">{landingCopy.mcpLabel}</span>
+          <h2 className="simple-card-title">{landingCopy.mcpTitle}</h2>
+          <p className="simple-copy">{landingCopy.mcpCopy}</p>
+
+          <div className="simple-mcp-row">
+            <code className="simple-code">{landingCopy.mcpLink}</code>
+            <McpCopyButton
+              defaultLabel={landingCopy.buttonLabel}
+              successLabel={landingCopy.buttonSuccess}
+              value={landingCopy.mcpLink}
+            />
+          </div>
+        </section>
+
+        <section className="simple-card simple-setup-card">
+          <span className="simple-label">{landingCopy.desktopSetup.label}</span>
+          <div className="simple-setup-row">
+            <div>
+              <h2 className="simple-card-title">{landingCopy.desktopSetup.title}</h2>
+              <p className="simple-copy">{landingCopy.desktopSetup.copy}</p>
+            </div>
+
+            <Link className="simple-setup-link" href={landingCopy.desktopSetup.href}>
+              {landingCopy.desktopSetup.ctaLabel}
+            </Link>
+          </div>
+        </section>
+
+        <section className="simple-card">
+          <span className="simple-label">{landingCopy.getStartedLabel}</span>
+          <h2 className="simple-card-title">{landingCopy.getStartedTitle}</h2>
+
+          <div className="simple-steps">
+            {landingCopy.steps.map((step, index) => (
+              <article className="simple-step" key={step.title}>
+                <span className="simple-step-number">0{index + 1}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.copy}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+    </main>
+  );
+}
