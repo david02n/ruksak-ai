@@ -90,6 +90,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async redirect({ url, baseUrl }) {
+      // If there's a specific callback URL, use it
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
@@ -102,9 +103,11 @@ export const authOptions: NextAuthOptions = {
           return url;
         }
       } catch {
-        return baseUrl;
+        // Invalid URL, fall through to default routing
       }
 
+      // Default routing: check onboarding status
+      // This will be called after successful sign-in when no explicit callback is provided
       return baseUrl;
     }
   },

@@ -1,7 +1,7 @@
 export const landingCopy = {
   logo: "Ruksak",
   snapLine: "Pack light. Carry the right context with you",
-  whyThisExists: "Start with the right context. Stay on the right focus.",
+  whyThisExists: "No setup forms. No profile questionnaires. Just connect, start working, and let your AI agents learn your context.",
   mcpLabel: "MCP",
   mcpTitle: "Connect Ruksak once",
   mcpCopy:
@@ -11,26 +11,33 @@ export const landingCopy = {
   buttonSuccess: "Copied",
   desktopSetup: {
     label: "Desktop setup",
-    title: "Trying to configure for desktop?",
-    copy:
-      "Sign in to get a ready-to-paste config and setup help for tools that need more than the MCP link.",
-    ctaLabel: "Get setup help",
-    href: "/login"
+    title: "For Windsurf, Cursor, desktop tools",
+    copy: "Add this to your MCP config file:",
+    mcpJsonConfig: `{
+  "mcpServers": {
+    "ruksak": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://www.ruksak.ai/api/mcp"]
+    }
+  }
+}`,
+    ctaLabel: "Copy config",
+    href: "/onboarding"
   },
   getStartedLabel: "Get started",
-  getStartedTitle: "A simple way to stay on track",
+  getStartedTitle: "Sign up in seconds. Onboard through your agents.",
   steps: [
     {
       title: "Connect",
       copy: "Add the Ruksak MCP link to your AI tool."
     },
     {
-      title: "Set your focus",
-      copy: "Add the work, priorities, and context that matter now."
+      title: "Start working",
+      copy: "Your AI agent will guide you conversationally to add context."
     },
     {
       title: "Stay focused",
-      copy: "Use it across chats and agents without extra noise."
+      copy: "Context syncs automatically across chats and agents."
     }
   ]
 } as const;

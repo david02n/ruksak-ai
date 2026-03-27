@@ -20,18 +20,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="page-shell auth-shell" id="signin">
       <PostHogPageEvent event="login_page_viewed" />
       <section className="auth-card">
-        <span className="eyebrow">Launch auth</span>
+        <span className="eyebrow">Sign in</span>
         <h1 className="section-title">Sign in to Ruksak.ai</h1>
         <p className="section-copy">
-          Google is the default launch path, and email/password is available as a
-          fallback for testing, non-Google users, and MCP approval flows.
+          Google is the default sign-in method. Email and password are also available.
         </p>
         <div className="cta-row">
           <SignInButton callbackUrl={callbackUrl} />
         </div>
         <div className="card-grid single-card-grid auth-grid">
           <article className="card">
-            <span className="card-tag">Fallback</span>
+            <span className="card-tag">Email</span>
             <h3>Email sign-in</h3>
             <EmailPasswordForm callbackUrl={callbackUrl} />
           </article>

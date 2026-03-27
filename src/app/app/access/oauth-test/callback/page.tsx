@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { OAuthTestCallback } from "@/components/oauth-test-callback";
@@ -6,6 +7,11 @@ import { OAuthTestCallback } from "@/components/oauth-test-callback";
 export const dynamic = "force-dynamic";
 
 export default function OAuthTestCallbackPage() {
+  // Hard block in production - return 404
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
+
   return (
     <AppShell
       eyebrow="OAuth callback"

@@ -40,11 +40,14 @@ export async function ensureUserRecord(input: UserIdentityInput) {
     return existing;
   }
 
+  // Auto-generate display name from email if not provided
+  const displayName = input.name || normalizedEmail.split('@')[0];
+
   const [created] = await db
     .insert(users)
     .values({
       primaryEmail: normalizedEmail,
-      displayName: input.name ?? null,
+      displayName,
       imageUrl: input.image ?? null
     })
     .returning();

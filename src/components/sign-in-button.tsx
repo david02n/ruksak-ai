@@ -22,10 +22,10 @@ export function SignInButton({
       onClick={async () => {
         setPending(true);
         captureEvent("google_sign_in_started", {
-          callback_url: callbackUrl ?? "/app/access/oauth-test"
+          callback_url: callbackUrl ?? "/onboarding"
         });
         await signIn("google", {
-          callbackUrl: callbackUrl ?? "/app/access/oauth-test"
+          callbackUrl: callbackUrl ?? "/onboarding"
         });
       }}
       disabled={pending}

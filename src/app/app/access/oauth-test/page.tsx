@@ -1,9 +1,16 @@
+import { notFound } from "next/navigation";
+
 import { AppShell } from "@/components/app-shell";
 import { OAuthTestLauncher } from "@/components/oauth-test-launcher";
 
 export const dynamic = "force-dynamic";
 
 export default function OAuthTestPage() {
+  // Hard block in production - return 404
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
+
   return (
     <AppShell
       eyebrow="OAuth smoke test"

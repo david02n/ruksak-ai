@@ -46,7 +46,7 @@ export default async function AccessPage({ searchParams }: AccessPageProps) {
     <AppShell
       eyebrow="MCP access"
       title="Create a Google-backed MCP token"
-      copy="Google sign-in is your identity layer. Ruksak now prefers OAuth for public MCP clients, while direct tokens remain available as a testing fallback."
+      copy="Google sign-in is your identity layer. Ruksak uses OAuth for MCP clients, with direct tokens available for advanced use cases."
     >
       {token ? (
         <article className="card">
@@ -58,11 +58,13 @@ export default async function AccessPage({ searchParams }: AccessPageProps) {
       ) : null}
 
       <div className="cta-row">
-        <Link className="button" href="/app/access/oauth-test">
-          Run OAuth end-to-end test
-        </Link>
+        {process.env.NODE_ENV !== "production" && (
+          <Link className="button" href="/app/access/oauth-test">
+            Run OAuth end-to-end test
+          </Link>
+        )}
         <Link className="button" href="/app/access/new">
-          Generate fallback MCP token
+          Generate direct access token
         </Link>
         <a className="button-secondary" href="https://www.ruksak.ai/api/mcp">
           MCP endpoint

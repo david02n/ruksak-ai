@@ -8,7 +8,6 @@ type SignupFormProps = {
 };
 
 export function SignupForm({ callbackUrl }: SignupFormProps) {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -31,7 +30,6 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
               "content-type": "application/json"
             },
             body: JSON.stringify({
-              name,
               email,
               password,
               callbackUrl
@@ -49,19 +47,10 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           }
 
           captureEvent("email_signup_succeeded");
-          window.location.href = payload.redirectTo ?? callbackUrl ?? "/app";
+          window.location.href = payload.redirectTo ?? callbackUrl ?? "/onboarding";
         });
       }}
     >
-      <label className="auth-field">
-        <span>Name</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          autoComplete="name"
-        />
-      </label>
       <label className="auth-field">
         <span>Email</span>
         <input

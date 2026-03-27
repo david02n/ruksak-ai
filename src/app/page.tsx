@@ -40,17 +40,26 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="simple-card simple-setup-card">
+        <section className="simple-card">
           <span className="simple-label">{landingCopy.desktopSetup.label}</span>
-          <div className="simple-setup-row">
-            <div>
-              <h2 className="simple-card-title">{landingCopy.desktopSetup.title}</h2>
-              <p className="simple-copy">{landingCopy.desktopSetup.copy}</p>
-            </div>
+          <h2 className="simple-card-title">{landingCopy.desktopSetup.title}</h2>
+          <p className="simple-copy">{landingCopy.desktopSetup.copy}</p>
 
-            <Link className="simple-setup-link" href={landingCopy.desktopSetup.href}>
-              {landingCopy.desktopSetup.ctaLabel}
-            </Link>
+          <div className="simple-mcp-row" style={{ marginTop: "16px" }}>
+            <pre className="simple-code" style={{ 
+              flex: 1, 
+              padding: "12px", 
+              fontSize: "13px",
+              overflow: "auto",
+              whiteSpace: "pre"
+            }}>
+              {landingCopy.desktopSetup.mcpJsonConfig}
+            </pre>
+            <McpCopyButton
+              defaultLabel={landingCopy.desktopSetup.ctaLabel}
+              successLabel={landingCopy.buttonSuccess}
+              value={landingCopy.desktopSetup.mcpJsonConfig}
+            />
           </div>
         </section>
 
