@@ -17,6 +17,7 @@
     "test:open-ruksak": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/mcp/open-ruksak-composition.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:migrate": "node scripts/apply-migration.mjs",
     "mcp:smoke": "node ./scripts/mcp-smoke.cjs"
   },
   "dependencies": {
