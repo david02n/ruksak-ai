@@ -1,13 +1,13 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignUp } from "@clerk/nextjs";
 import { PostHogPageEvent } from "@/components/posthog-page-event";
 
-export default function LoginPage() {
+export default function SignupPage() {
   return (
-    <main className="page-shell auth-shell" id="signin">
-      <PostHogPageEvent event="login_page_viewed" />
+    <main className="page-shell auth-shell" id="signup">
+      <PostHogPageEvent event="signup_page_viewed" />
       <section className="auth-card">
         <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-          <SignIn 
+          <SignUp 
             appearance={{
               elements: {
                 rootBox: "mx-auto",
@@ -15,8 +15,8 @@ export default function LoginPage() {
               }
             }}
             routing="path"
-            path="/login"
-            signUpUrl="/signup"
+            path="/signup"
+            signInUrl="/login"
             fallbackRedirectUrl="/onboarding"
           />
         </div>

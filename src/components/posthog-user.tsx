@@ -1,28 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import posthog from "posthog-js";
 import { POSTHOG_PRODUCT } from "@/lib/posthog";
 
-type PostHogUserProps = {
-  distinctId?: string | null;
-  email?: string | null;
-  name?: string | null;
-};
+export function PostHogUser() {
+  const { user, isLoaded } = useUser();
 
-export function PostHogUser({ distinctId, email, name }: PostHogUserProps) {
   useEffect(() => {
-    if (!distinctId) {
+    if (!isLoaded) return;
+
+    if (!user) {
       posthog.reset();
       return;
     }
 
-    posthog.identify(distinctId, {
+    posthog.identify(user.id, {
       product: POSTHOG_PRODUCT,
-      email: email ?? undefined,
-      name: name ?? undefined
+      email: user.primaryEmailAddress?.emailAddress ?? undefined,
+      name: user.fullName ?? undefined
     });
-  }, [distinctId, email, name]);
+  }, [user, isLoaded]);
 
   return null;
 }

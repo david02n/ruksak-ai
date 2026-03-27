@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from '@clerk/nextjs';
 
-import { auth } from "@/auth";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogUser } from "@/components/posthog-user";
 import { env } from "@/lib/env";
@@ -57,25 +57,21 @@ export const metadata: Metadata = {
   }
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-
   return (
-    <html lang="en">
-      <body>
-        <PostHogProvider apiHost={env.posthogHost} apiKey={env.posthogKey}>
-          <PostHogUser
-            distinctId={session?.user?.email ?? null}
-            email={session?.user?.email ?? null}
-            name={session?.user?.name ?? null}
-          />
-          {children}
-        </PostHogProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body>
+          <PostHogProvider apiHost={env.posthogHost} apiKey={env.posthogKey}>
+            <PostHogUser />
+            {children}
+          </PostHogProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

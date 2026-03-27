@@ -22,12 +22,12 @@
     "mcp:smoke": "node ./scripts/mcp-smoke.cjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.0.7",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.1",
     "ioredis": "^5.10.1",
     "next": "^15.3.0",
-    "next-auth": "^4.24.13",
     "pg": "^8.20.0",
     "posthog-js": "^1.363.5",
     "react": "^19.1.0",

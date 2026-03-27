@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 
-import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { PostHogPageEvent } from "@/components/posthog-page-event";
 import { getCurrentContextView, getUserByPrimaryEmail } from "@/lib/current-context";
@@ -120,17 +120,17 @@ function DetailList(input: {
 }
 
 export default async function AppPage({ searchParams }: AppPageProps) {
-  const session = await auth();
+  const clerkUser = await currentUser();
   const params = (await searchParams) ?? {};
   const projectTypeFilter = readFilter(params.projectType, PROJECT_TYPE_FILTERS, "all");
   const provenanceTypeFilter = readFilter(params.provenanceType, PROVENANCE_FILTERS, "all");
 
-  if (!session?.user?.email) {
+  if (!clerkUser?.primaryEmailAddress?.emailAddress) {
     return (
       <AppShell
         eyebrow="Private app"
         title="You need to sign in first"
-        copy="The landing page is public, but the product workspace lives behind Google auth."
+        copy="The landing page is public, but the product workspace lives behind authentication."
       >
         <div className="cta-row">
           <Link className="button" href="/login">
@@ -141,13 +141,14 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     );
   }
 
-  const user = await getUserByPrimaryEmail(session.user.email);
+  const email = clerkUser.primaryEmailAddress.emailAddress;
+  const user = await getUserByPrimaryEmail(email);
 
   if (!user) {
     return (
       <AppShell
         eyebrow="Private app"
-        title="We couldn’t find your Ruksak user yet"
+        title="We couldn't find your Ruksak user yet"
         copy="Sign in again or create context through the MCP flow first so the control surface has a user record to load."
       />
     );
@@ -155,8 +156,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
 
   const view = await getCurrentContextView({
     userId: user.id,
-    email: session.user.email,
-    name: session.user.name
+    email,
+    name: clerkUser.fullName
   });
 
   const resolvedProject = view.envelope.metadata.resolved_project;
@@ -182,7 +183,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     <AppShell
       eyebrow="Ruksak control surface"
       title={pageTitle}
-      copy={`Signed in as ${session.user.email}. This view uses the same normalized current-work model as open_ruksak.`}
+      copy={`Signed in as ${email}. This view uses the same normalized current-work model as open_ruksak.`}
     >
       <PostHogPageEvent
         event="workspace_viewed"
