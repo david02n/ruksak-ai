@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as Provider } from "posthog-js/react";
 import { POSTHOG_PRODUCT } from "@/lib/posthog";
@@ -16,7 +16,6 @@ let initialized = false;
 
 export function PostHogProvider({ children, apiKey, apiHost }: PostHogProviderProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!apiKey || initialized) {
@@ -37,12 +36,12 @@ export function PostHogProvider({ children, apiKey, apiHost }: PostHogProviderPr
       return;
     }
 
-    const query = searchParams.toString();
+    const query = typeof window !== "undefined" ? window.location.search.replace(/^\?/, "") : "";
     posthog.capture("$pageview", {
       product: POSTHOG_PRODUCT,
       $current_url: query ? `${pathname}?${query}` : pathname
     });
-  }, [apiKey, pathname, searchParams]);
+  }, [apiKey, pathname]);
 
   if (!apiKey) {
     return children;

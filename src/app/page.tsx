@@ -20,7 +20,7 @@ export default function HomePage() {
           <Link className="button" href="/login#signin">
             Sign in
           </Link>
-          <Link className="button-secondary" href="/login#signup">
+          <Link className="button-secondary" href="/signup">
             Sign up
           </Link>
         </div>
