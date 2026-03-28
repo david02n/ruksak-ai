@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { CandidateProject, ProjectResolution, ResolvedClient } from "@/mcp/project-resolution";
-import type { ContextStructureProfile, NormalizedContext, NormalizedContextItem } from "@/mcp/context-normalization";
+import type { NormalizedContext, NormalizedContextItem } from "@/mcp/context-normalization";
 
 type UserSummary = {
   displayName: string | null;

@@ -53,8 +53,6 @@ export type FetchResult =
       updatedAt: string;
     };
 
-type RuksakUser = InferSelectModel<typeof users>;
-
 function asIsoString(value: Date | null) {
   return value ? value.toISOString() : "";
 }
@@ -103,10 +101,6 @@ function fallbackCurrentContext() {
     recentChangeCount: 0,
     source: "fallback"
   };
-}
-
-function entitySummary(entity: EntityRow) {
-  return entity.summary ?? `${entity.entityType} stored in Ruksak`;
 }
 
 function normalizeText(value: string) {

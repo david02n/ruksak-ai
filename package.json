@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:auth": "node --test --experimental-strip-types src/mcp/auth.test.ts",
     "test:analysis": "node --test --experimental-strip-types --import ./src/test-paths-register.mjs src/lib/context-analysis.test.ts",

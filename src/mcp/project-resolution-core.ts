@@ -38,10 +38,6 @@ export type ProjectResolution = {
   clarificationRequired: boolean;
 };
 
-function normalizeText(value?: string | null) {
-  return value?.trim().toLowerCase() ?? "";
-}
-
 function clampConfidence(value: number) {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
 }

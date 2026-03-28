@@ -1,6 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
-import { baseUrl, getOAuthAccessToken, mcpAudience } from "@/lib/oauth";
+import { baseUrl, getOAuthAccessToken } from "@/lib/oauth";
 import { authenticateMcpToken } from "@/lib/ruksak-users";
 import {
   AUTH_REASON_CODES,

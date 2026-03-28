@@ -8,13 +8,11 @@ import { clientSessions, projects, ruksaks } from "@/db/schema";
 import {
   finalizeProjectResolution,
   projectRepo,
-  type CandidateProject,
   type ProjectLike,
   type ProjectResolution
 } from "@/mcp/project-resolution-core";
 export type { CandidateProject, ProjectResolution } from "@/mcp/project-resolution-core";
 
-type ProjectRow = InferSelectModel<typeof projects>;
 type ClientSessionRow = InferSelectModel<typeof clientSessions>;
 
 export type OpenRuksakHints = {

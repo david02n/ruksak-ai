@@ -39,13 +39,13 @@ export default function OnboardingPage() {
     <AppShell
       eyebrow="You're signed up"
       title="Connect Ruksak to your AI tool"
-      copy="You have no context yet—that's normal. Onboarding happens through your AI agents. Here's how to connect:"
+      copy="You have no context yet-that&apos;s normal. Onboarding happens through your AI agents. Here&apos;s how to connect:"
     >
       <div className="card-grid single-card-grid">
         <article className="card">
           <span className="card-tag">ChatGPT / Claude apps</span>
           <h3>Simple link</h3>
-          <p>Paste this link into your AI tool's MCP settings:</p>
+          <p>Paste this link into your AI tool&apos;s MCP settings:</p>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "12px" }}>
             <code style={{ flex: 1, padding: "8px", background: "#f5f5f5", borderRadius: "4px" }}>
               {mcpUrl}
@@ -113,7 +113,7 @@ export default function OnboardingPage() {
         </article>
 
         <article className="card">
-          <span className="card-tag">What's next</span>
+          <span className="card-tag">What&apos;s next</span>
           <h3>Start working</h3>
           <p><strong>Your browser will handle sign-in when your MCP client connects.</strong></p>
           <p style={{ marginTop: "12px" }}>

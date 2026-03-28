@@ -12,7 +12,7 @@ export function PostHogPageEvent({ event, properties }: PostHogPageEventProps) {
   const serialized = JSON.stringify(properties ?? {});
 
   useEffect(() => {
-    captureEvent(event, properties);
+    captureEvent(event, serialized ? (JSON.parse(serialized) as Record<string, unknown>) : undefined);
   }, [event, serialized]);
 
   return null;
