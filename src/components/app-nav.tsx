@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignOutButton } from "@/components/sign-out-button";
+import { UserButton } from "@clerk/nextjs";
 
 const links = [
   { href: "/app", label: "Overview" },
@@ -17,7 +17,7 @@ export function AppNav() {
           {link.label}
         </Link>
       ))}
-      <SignOutButton />
+      <UserButton />
     </nav>
   );
 }

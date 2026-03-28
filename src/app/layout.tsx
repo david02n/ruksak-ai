@@ -63,15 +63,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body>
+    <html lang="en">
+      <body>
+        <ClerkProvider>
           <PostHogProvider apiHost={env.posthogHost} apiKey={env.posthogKey}>
             <PostHogUser />
             {children}
           </PostHogProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

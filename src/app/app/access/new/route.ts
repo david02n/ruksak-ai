@@ -9,7 +9,7 @@ export async function GET() {
   const clerkUser = await currentUser();
 
   if (!clerkUser?.primaryEmailAddress?.emailAddress) {
-    redirect("/login");
+    redirect("/sign-in");
   }
 
   const user = await ensureUserRecord({

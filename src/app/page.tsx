@@ -2,6 +2,7 @@ import { landingCopy } from "@/content/landing";
 import { LogoMark } from "@/components/logo-mark";
 import { McpCopyButton } from "@/components/mcp-copy-button";
 import { PostHogPageEvent } from "@/components/posthog-page-event";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -17,12 +18,24 @@ export default function HomePage() {
         <h1 className="simple-title">{landingCopy.snapLine}</h1>
         <p className="simple-why">{landingCopy.whyThisExists}</p>
         <div className="cta-row">
-          <Link className="button" href="/login#signin">
-            Sign in
-          </Link>
-          <Link className="button-secondary" href="/signup">
-            Sign up
-          </Link>
+          <Show when="signed-out">
+            <SignInButton mode="redirect" fallbackRedirectUrl="/app">
+              <button className="button" type="button">
+                Sign in
+              </button>
+            </SignInButton>
+            <SignUpButton mode="redirect" fallbackRedirectUrl="/app">
+              <button className="button-secondary" type="button">
+                Sign up
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <Link className="button" href="/app">
+              Open app
+            </Link>
+            <UserButton />
+          </Show>
         </div>
 
         <section className="simple-card">

@@ -133,8 +133,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         copy="The landing page is public, but the product workspace lives behind authentication."
       >
         <div className="cta-row">
-          <Link className="button" href="/login">
-            Go to login
+          <Link className="button" href="/sign-in">
+            Go to sign in
           </Link>
         </div>
       </AppShell>

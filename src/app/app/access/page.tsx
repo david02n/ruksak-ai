@@ -20,8 +20,8 @@ export default async function AccessPage({ searchParams }: AccessPageProps) {
         copy="Sign in before creating an MCP access token."
       >
         <div className="cta-row">
-          <Link className="button" href="/login">
-            Go to login
+          <Link className="button" href="/sign-in">
+            Go to sign in
           </Link>
         </div>
       </AppShell>

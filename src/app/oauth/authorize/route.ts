@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 
   if (!signedInUser) {
     const returnTo = `${url.pathname}${url.search}`;
-    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    redirect(`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`);
   }
 
   const code = await saveAuthorizationCode({
