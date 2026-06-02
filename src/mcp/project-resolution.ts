@@ -8,10 +8,10 @@ import { clientSessions, projects, ruksaks } from "@/db/schema";
 import {
   finalizeProjectResolution,
   projectRepo,
-  type ProjectLike,
-  type ProjectResolution
+  type ContextResolution,
+  type ProjectLike
 } from "@/mcp/project-resolution-core";
-export type { CandidateProject, ProjectResolution } from "@/mcp/project-resolution-core";
+export type { CandidateProject, ContextMode, ContextResolution } from "@/mcp/project-resolution-core";
 
 type ClientSessionRow = InferSelectModel<typeof clientSessions>;
 
@@ -37,6 +37,26 @@ const NEW_CONTEXT_PATTERNS = [
   /\bmeta\b/i,
   /\boperating system\b/i,
   /\bnot\s+[a-z0-9-]+\b/i
+];
+
+const PLURALITY_PATTERNS = [
+  /\bmore than just\b/i,
+  /\bmultiple\b/i,
+  /\bseveral\b/i,
+  /\bparallel\b/i,
+  /\bacross\b/i,
+  /\bportfolio\b/i,
+  /\bprojects\b/i,
+  /\bworkstreams\b/i
+];
+
+const PORTFOLIO_PATTERNS = [
+  /\bportfolio\b/i,
+  /\bprioriti[sz]e\b/i,
+  /\bwhat(?:'s| is)\s+active\b/i,
+  /\bactive work\b/i,
+  /\bcurrent priorities\b/i,
+  /\bwork across\b/i
 ];
 
 export type ResolvedClient = {
@@ -157,6 +177,16 @@ function inferProjectTypeFromRequest(requestText?: string | null) {
 function requestSuggestsNewContext(requestText?: string | null) {
   const normalized = normalizeText(requestText);
   return Boolean(normalized && NEW_CONTEXT_PATTERNS.some((pattern) => pattern.test(normalized)));
+}
+
+function requestSuggestsPlurality(requestText?: string | null) {
+  const normalized = normalizeText(requestText);
+  return Boolean(normalized && PLURALITY_PATTERNS.some((pattern) => pattern.test(normalized)));
+}
+
+function requestSuggestsPortfolio(requestText?: string | null) {
+  const normalized = normalizeText(requestText);
+  return Boolean(normalized && PORTFOLIO_PATTERNS.some((pattern) => pattern.test(normalized)));
 }
 
 function detectProfile(value?: string | null) {
@@ -390,8 +420,12 @@ export async function resolveProjectForRequest(input: {
 
   if (!db) {
     return {
-      projectId: null,
+      mode: "user",
+      focusProjectId: null,
+      focusCandidates: [],
+      activePortfolio: [],
       confidence: 0,
+      confidenceLabel: "low",
       resolutionSource: "no_database",
       resolutionExplanation: ["No database is configured."],
       resolutionSignalBreakdown: {
@@ -400,10 +434,11 @@ export async function resolveProjectForRequest(input: {
         semantic: [],
         affinity: []
       },
-      recommendedActions: ["stay_in_user_level_context"],
-      candidateProjects: [],
-      clarificationRequired: false
-    } satisfies ProjectResolution;
+      clarificationRequired: false,
+      newProjectRecommended: false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
+    } satisfies ContextResolution;
   }
 
   const userProjects = await db
@@ -419,8 +454,12 @@ export async function resolveProjectForRequest(input: {
 
   if (!userProjects.length) {
     return {
-      projectId: null,
+      mode: "user",
+      focusProjectId: null,
+      focusCandidates: [],
+      activePortfolio: [],
       confidence: 0,
+      confidenceLabel: "low",
       resolutionSource: "no_projects",
       resolutionExplanation: ["No projects exist yet for this user."],
       resolutionSignalBreakdown: {
@@ -429,10 +468,11 @@ export async function resolveProjectForRequest(input: {
         semantic: [],
         affinity: []
       },
-      recommendedActions: ["create_new_project"],
-      candidateProjects: [],
-      clarificationRequired: false
-    } satisfies ProjectResolution;
+      clarificationRequired: false,
+      newProjectRecommended: false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
+    } satisfies ContextResolution;
   }
 
   const rankedCandidates = userProjects
@@ -455,7 +495,10 @@ export async function resolveProjectForRequest(input: {
 
   return finalizeProjectResolution({
     userProjects,
-    rankedCandidates
+    rankedCandidates,
+    pluralityLikely: requestSuggestsPlurality(input.hints.request_text),
+    portfolioLikely: requestSuggestsPortfolio(input.hints.request_text),
+    newProjectLikely: requestSuggestsNewContext(input.hints.request_text)
   });
 }
 

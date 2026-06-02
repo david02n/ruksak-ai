@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import {
+  createProjectContext,
   type McpSessionContext,
   openRuksak,
   updateRuksakContext
@@ -42,7 +43,7 @@ export function createSessionBoundRuksakMcpServer(session?: McpSessionContext) {
     "open_ruksak",
     {
       description:
-        "Resolve user and project context, normalize it into stable semantic roles, and return a client-adapted current working state from Ruksak.",
+        "Route request-scoped context across project, multi-project, portfolio, user, or new-project-candidate modes and return a client-adapted working state from Ruksak.",
       inputSchema: {
         client: z
           .string()
@@ -59,7 +60,7 @@ export function createSessionBoundRuksakMcpServer(session?: McpSessionContext) {
         request_text: z
           .string()
           .optional()
-          .describe("Optional request text used to validate project inference.")
+          .describe("Optional request text used to infer project, portfolio, or multi-project focus.")
       },
       annotations: {
         readOnlyHint: true
@@ -87,8 +88,12 @@ export function createSessionBoundRuksakMcpServer(session?: McpSessionContext) {
     "update_ruksak_context",
     {
       description:
-        "Create or update a durable Ruksak context item so future open_ruksak calls return meaningful working state.",
+        "Create or update durable Ruksak context with structured low-friction writes and explicit write-policy feedback.",
       inputSchema: {
+        action_kind: z
+          .enum(["update_context", "create_project"])
+          .optional()
+          .describe("Optional write action hint. Defaults to update_context."),
         title: z.string().min(1).describe("Short title for the context item."),
         summary: z.string().min(1).describe("Concise durable summary of the context item."),
         kind_key: z
@@ -150,6 +155,10 @@ export function createSessionBoundRuksakMcpServer(session?: McpSessionContext) {
           .describe("Optional structured source reference for imported or derived material."),
         priority: z.string().optional().describe("Optional priority such as urgent, high, medium, or low."),
         status: z.string().optional().describe("Optional status such as active, blocked, or done."),
+        expected_updated_at: z
+          .string()
+          .optional()
+          .describe("Optional optimistic concurrency token from the last read."),
         data: z
           .record(z.string(), z.unknown())
           .optional()
@@ -170,6 +179,46 @@ export function createSessionBoundRuksakMcpServer(session?: McpSessionContext) {
       }
 
       const response = await updateRuksakContext(arguments_, session);
+      return toTextBlock(JSON.stringify(response, null, 2));
+    }
+  );
+
+  server.registerTool(
+    "create_project_context",
+    {
+      description:
+        "Create a new project or workstream when existing projects do not fit and the request describes distinct new work.",
+      inputSchema: {
+        name: z.string().min(1).describe("Project or workstream name."),
+        summary: z.string().min(1).describe("Short summary used to initialize the project."),
+        project_type: z
+          .enum(["build", "workstream", "foundation", "operating_model"])
+          .describe("Project type for the new project."),
+        parent_project_id: z
+          .string()
+          .optional()
+          .describe("Optional parent project id used to group workstreams or foundations."),
+        repo: z.string().optional().describe("Optional repository hint such as owner/name."),
+        cwd: z.string().optional().describe("Optional working directory hint."),
+        source_ref: z
+          .record(z.string(), z.unknown())
+          .describe("Required source or request reference for guarded project creation.")
+      }
+    },
+    async (arguments_) => {
+      if (!session?.userId) {
+        return toTextBlock(
+          JSON.stringify(
+            {
+              error: "create_project_context requires an authenticated MCP session."
+            },
+            null,
+            2
+          )
+        );
+      }
+
+      const response = await createProjectContext(arguments_, session);
       return toTextBlock(JSON.stringify(response, null, 2));
     }
   );

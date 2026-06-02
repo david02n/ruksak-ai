@@ -19,7 +19,9 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "node scripts/apply-migration.mjs",
     "db:init": "node scripts/init-db.mjs",
-    "mcp:smoke": "node ./scripts/mcp-smoke.cjs"
+    "mcp:smoke": "node ./scripts/mcp-smoke.cjs",
+    "mcp:smoke:oauth": "node ./scripts/mcp-smoke.cjs --oauth",
+    "test:oauth-client": "node --test ./scripts/mcp-oauth-helper.test.cjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.7",

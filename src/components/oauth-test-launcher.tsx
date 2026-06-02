@@ -50,7 +50,7 @@ export function OAuthTestLauncher() {
           redirect_uris: [redirectUri],
           grant_types: ["authorization_code", "refresh_token"],
           response_types: ["code"],
-          token_endpoint_auth_method: "client_secret_post",
+          token_endpoint_auth_method: "none",
           scope: "openid email profile mcp:tools"
         })
       });
@@ -65,7 +65,6 @@ export function OAuthTestLauncher() {
         SESSION_KEY,
         JSON.stringify({
           client_id: client.client_id,
-          client_secret: client.client_secret,
           redirect_uri: redirectUri,
           state,
           code_verifier: codeVerifier

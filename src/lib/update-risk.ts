@@ -1,9 +1,10 @@
 import "server-only";
 
 type RiskLevel = "low" | "medium" | "high";
+type WritePolicy = "auto_apply" | "auto_apply_with_audit" | "review_required";
 
 export type UpdateRiskInput = {
-  action: "create" | "update";
+  action: "create" | "update" | "create_project";
   kindKey: "summary" | "work_item" | "lesson" | "decision" | "reference";
   existingKindKey?: string | null;
   existingStatus?: string | null;
@@ -14,10 +15,12 @@ export type UpdateRiskInput = {
   nextSummary?: string | null;
   projectCreated?: boolean;
   accountContextChanged?: boolean;
+  fieldClass?: "operational" | "semantic" | "destructive";
 };
 
 export type UpdateRiskDecision = {
   riskLevel: RiskLevel;
+  writePolicy: WritePolicy;
   autoCaptured: boolean;
   reviewRecommended: boolean;
   requiresExplicitApproval: boolean;
@@ -50,6 +53,12 @@ export function classifyContextUpdateRisk(input: UpdateRiskInput): UpdateRiskDec
   const kindChanged =
     Boolean(input.existingKindKey) && normalize(input.existingKindKey) !== normalize(input.kindKey);
   const summaryChanged = materiallyChangedText(input.existingSummary, input.nextSummary);
+  const fieldClass = input.fieldClass ?? "operational";
+
+  if (input.action === "create_project") {
+    riskLevel = "high";
+    reasons.push("Creates a new project record.");
+  }
 
   if (input.projectCreated) {
     riskLevel = "high";
@@ -103,8 +112,26 @@ export function classifyContextUpdateRisk(input: UpdateRiskInput): UpdateRiskDec
     reasons.push("Routine additive context capture.");
   }
 
+  if (fieldClass === "semantic") {
+    riskLevel = "high";
+    reasons.push("Touches semantic or identity-defining fields.");
+  }
+
+  if (fieldClass === "destructive") {
+    riskLevel = "high";
+    reasons.push("Touches destructive fields.");
+  }
+
+  const writePolicy: WritePolicy =
+    riskLevel === "high"
+      ? "review_required"
+      : riskLevel === "medium"
+        ? "auto_apply_with_audit"
+        : "auto_apply";
+
   return {
     riskLevel,
+    writePolicy,
     autoCaptured: true,
     reviewRecommended: riskLevel !== "low",
     requiresExplicitApproval: riskLevel === "high",

@@ -149,6 +149,7 @@ async function resolveUser(userId: string) {
 }
 
 type ContextWriteInput = OpenRuksakHints & {
+  action_kind?: "update_context" | "create_project";
   title: string;
   summary: string;
   kind_key: "summary" | "work_item" | "lesson" | "decision" | "reference";
@@ -165,6 +166,7 @@ type ContextWriteInput = OpenRuksakHints & {
   data?: Record<string, unknown>;
   priority?: string;
   status?: string;
+  expected_updated_at?: string;
 };
 
 function defaultEntityTypeForKind(kindKey: ContextWriteInput["kind_key"]) {
@@ -193,7 +195,6 @@ function titleSlug(value: string) {
 async function ensureProjectForWrite(input: {
   userId: string;
   hints: OpenRuksakHints;
-  projectName?: string;
 }) {
   const db = getDb();
   if (!db) {
@@ -208,11 +209,11 @@ async function ensureProjectForWrite(input: {
     hints: input.hints
   });
 
-  if (resolution.projectId) {
+  if (resolution.focusProjectId) {
     const [existing] = await db
       .select()
       .from(projects)
-      .where(and(eq(projects.userId, input.userId), eq(projects.id, resolution.projectId)))
+      .where(and(eq(projects.userId, input.userId), eq(projects.id, resolution.focusProjectId)))
       .limit(1);
 
     return {
@@ -223,9 +224,7 @@ async function ensureProjectForWrite(input: {
 
   const requestedSlug = input.hints.project_slug
     ? titleSlug(input.hints.project_slug)
-    : input.projectName
-      ? titleSlug(input.projectName)
-      : "";
+    : "";
 
   if (!requestedSlug) {
     return {
@@ -247,26 +246,59 @@ async function ensureProjectForWrite(input: {
     };
   }
 
-  const repoHint = input.hints.repo?.split("/") ?? [];
+  return {
+    project: null,
+    created: false
+  };
+}
+
+async function createProjectForUser(input: {
+  userId: string;
+  name: string;
+  summary: string;
+  projectType: string;
+  parentProjectId?: string;
+  repo?: string;
+  cwd?: string;
+}) {
+  const db = getDb();
+  if (!db) {
+    throw new Error("Database is not configured.");
+  }
+
+  const slug = titleSlug(input.name);
+  const [existing] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.userId, input.userId), eq(projects.slug, slug)))
+    .limit(1);
+
+  if (existing) {
+    return {
+      project: existing,
+      created: false
+    };
+  }
+
+  const repoHint = input.repo?.split("/") ?? [];
   const [created] = await db
     .insert(projects)
     .values({
       userId: input.userId,
-      name: input.projectName ?? input.hints.project_slug ?? requestedSlug,
-      slug: requestedSlug,
-      projectType: input.hints.project_type ?? "build",
-      parentProjectId: input.hints.parent_project_id ?? null,
+      name: input.name,
+      slug,
+      projectType: input.projectType,
+      parentProjectId: input.parentProjectId ?? null,
       repoOwner: repoHint.length === 2 ? repoHint[0] : null,
       repoName: repoHint.length === 2 ? repoHint[1] : null,
-      rootPath: input.hints.cwd ?? null,
-      description:
-        typeof input.hints.request_text === "string" ? input.hints.request_text : null
+      rootPath: input.cwd ?? null,
+      description: input.summary
     })
     .returning();
 
   return {
-    project: created ?? null,
-    created: Boolean(created)
+    project: created,
+    created: true
   };
 }
 
@@ -347,7 +379,20 @@ export async function openRuksak(
     return {
       metadata: {
         resolved_client: hints.client ?? "default_v1",
-        resolved_project: null,
+        context_mode: "user",
+        focus: {
+          project_id: null,
+          project_name: null,
+          project_slug: null,
+          project_type: null,
+          confidence: "low",
+          source: "no_database",
+          session_focus_applied: false,
+          explicit_override_applied: false
+        },
+        focus_candidates: [],
+        active_portfolio: [],
+        new_project_recommended: false,
         confidence: 0,
         resolution_source: "no_database",
         resolution_explanation: ["No database is configured."],
@@ -357,9 +402,7 @@ export async function openRuksak(
           semantic: [],
           affinity: []
         },
-        recommended_actions: ["stay_in_user_level_context"],
         clarification_required: false,
-        candidate_projects: [],
         structure_profile: {
           id: "fallback-structure",
           slug: DEFAULT_STRUCTURE_SLUG,
@@ -388,7 +431,7 @@ export async function openRuksak(
         workspace_url: "https://www.ruksak.ai/app",
         paths: {
           workspace: "/app",
-          current_project: null,
+          focus_project: null,
           projects: "/app#projects",
           dashboard: "/app"
         }
@@ -435,12 +478,11 @@ export async function openRuksak(
     .where(
       and(
         eq(entities.userId, user.id),
-        eq(entities.status, "active"),
-        resolution.projectId ? eq(entities.projectId, resolution.projectId) : undefined
+        eq(entities.status, "active")
       )
     )
     .orderBy(desc(entities.updatedAt))
-    .limit(30);
+    .limit(120);
 
   const normalized = normalizeContext({
     structure,
@@ -502,10 +544,10 @@ export async function openRuksak(
     userId: user.id,
     clientKey: resolvedClient.key,
     transportType: session.transportType,
-    lastProjectId: resolution.projectId,
     clientMetadata: {
       detected_client: resolvedClient.label,
       source: resolvedClient.source,
+      context_mode: resolution.mode,
       request_hints: {
         repo: hints.repo ?? null,
         cwd: hints.cwd ?? null,
@@ -541,8 +583,7 @@ export async function updateRuksakContext(
   const structure = await ensureContextStructureForUser(user.id);
   const projectResolution = await ensureProjectForWrite({
     userId: user.id,
-    hints: input,
-    projectName: input.project_name
+    hints: input
   });
   const project = projectResolution.project;
   const accountContext = await resolveAccountContextForWrite({
@@ -580,6 +621,28 @@ export async function updateRuksakContext(
       )
     )
     .limit(1);
+
+  if (
+    existingEntity &&
+    input.expected_updated_at &&
+    asIsoString(existingEntity.updatedAt) !== input.expected_updated_at
+  ) {
+    return {
+      ok: false,
+      mode: "conflict",
+      message: "The context item changed since it was last read.",
+      conflict: {
+        expected_updated_at: input.expected_updated_at,
+        actual_updated_at: asIsoString(existingEntity.updatedAt),
+        entity_id: existingEntity.id
+      }
+    };
+  }
+
+  const fieldClass =
+    input.action_kind === "create_project" || input.kind_key === "summary"
+      ? "semantic"
+      : "operational";
 
   const entity =
     existingEntity
@@ -648,7 +711,8 @@ export async function updateRuksakContext(
     projectCreated: projectResolution.created,
     accountContextChanged:
       Boolean(existingEntity) &&
-      (existingEntity?.accountContextId ?? null) !== (accountContext?.id ?? null)
+      (existingEntity?.accountContextId ?? null) !== (accountContext?.id ?? null),
+    fieldClass
   });
 
   await db.insert(changeEvents).values({
@@ -670,23 +734,6 @@ export async function updateRuksakContext(
       provenanceType: entity.provenanceType
     }
   });
-
-  const [primaryRuksak] = await db
-    .select()
-    .from(ruksaks)
-    .where(and(eq(ruksaks.userId, user.id), eq(ruksaks.slug, "primary")))
-    .limit(1);
-
-  if (primaryRuksak && project) {
-    await db
-      .update(ruksaks)
-      .set({
-        currentProjectId: project.id,
-        contextStructureId: primaryRuksak.contextStructureId ?? structure.id,
-        updatedAt: new Date()
-      })
-      .where(eq(ruksaks.id, primaryRuksak.id));
-  }
 
   return {
     ok: true,
@@ -729,12 +776,116 @@ export async function updateRuksakContext(
       version: structure.version
     },
     update_policy: {
+      write_policy: risk.writePolicy,
       risk_level: risk.riskLevel,
+      review_required: risk.reviewRecommended,
+      audit_logged: true,
       auto_captured: risk.autoCaptured,
       review_recommended: risk.reviewRecommended,
       requires_explicit_approval: risk.requiresExplicitApproval,
       reasons: risk.reasons
     },
     next: "Call open_ruksak to verify the updated working context."
+  };
+}
+
+export async function createProjectContext(
+  input: {
+    name: string;
+    summary: string;
+    project_type: string;
+    parent_project_id?: string;
+    repo?: string;
+    cwd?: string;
+    source_ref?: Record<string, unknown>;
+  },
+  session: McpSessionContext
+) {
+  const db = getDb();
+
+  if (!db) {
+    return {
+      ok: false,
+      mode: "no_database",
+      message: "Ruksak cannot create a project because the database is not configured."
+    };
+  }
+
+  const user = await resolveUser(session.userId);
+
+  if (!user) {
+    throw new Error("Could not resolve the authenticated Ruksak user.");
+  }
+
+  if (!normalizeText(input.name) || !normalizeText(input.summary) || !normalizeText(input.project_type)) {
+    return {
+      ok: false,
+      mode: "invalid_request",
+      message: "name, summary, and project_type are required."
+    };
+  }
+
+  if (!input.source_ref) {
+    return {
+      ok: false,
+      mode: "invalid_request",
+      message: "source_ref is required for guarded project creation."
+    };
+  }
+
+  const created = await createProjectForUser({
+    userId: user.id,
+    name: input.name,
+    summary: input.summary,
+    projectType: input.project_type,
+    parentProjectId: input.parent_project_id,
+    repo: input.repo,
+    cwd: input.cwd
+  });
+
+  const risk = classifyContextUpdateRisk({
+    action: "create_project",
+    kindKey: "summary",
+    nextSummary: input.summary,
+    projectCreated: created.created,
+    fieldClass: "semantic"
+  });
+
+  await db.insert(changeEvents).values({
+    userId: user.id,
+    entityId: null,
+    accountContextId: null,
+    actionType: created.created ? "project_created" : "project_reused",
+    actorType: "mcp_client",
+    actorLabel: session.clientLabel ?? session.clientKey ?? "MCP client",
+    originSurface: "mcp",
+    after: {
+      projectId: created.project.id,
+      projectSlug: created.project.slug,
+      sourceRef: input.source_ref
+    }
+  });
+
+  return {
+    ok: true,
+    mode: created.created ? "created" : "existing",
+    project: {
+      id: created.project.id,
+      name: created.project.name,
+      slug: created.project.slug,
+      project_type: created.project.projectType,
+      parent_project_id: created.project.parentProjectId
+    },
+    update_policy: {
+      write_policy: risk.writePolicy,
+      risk_level: risk.riskLevel,
+      review_required: risk.reviewRecommended,
+      audit_logged: true,
+      auto_captured: risk.autoCaptured,
+      review_recommended: risk.reviewRecommended,
+      requires_explicit_approval: risk.requiresExplicitApproval,
+      reasons: risk.reasons
+    },
+    next: "Call open_ruksak to verify the new portfolio and focus candidates."
   };
 }

@@ -34,6 +34,18 @@ const candidateRuksak = {
   signals: ["repo_mapping", "cwd_root_path"]
 };
 
+const candidateReelez = {
+  id: "project-reelez",
+  name: "Reelez",
+  slug: "reelez",
+  project_type: "build",
+  parent_project_id: null,
+  repo: "david02n/reelez",
+  root_path: "/Users/davidbarnes/Documents/Temp/reelez",
+  score: 62,
+  signals: ["request_text_token_overlap"]
+};
+
 const normalized = {
   summary: [
     {
@@ -93,16 +105,16 @@ const normalized = {
       data: { priority: "high", status: "active" }
     },
     {
-      id: "work-medium",
-      title: "Document current MCP surface",
-      summary: "Write internal docs for the current tools and flows.",
+      id: "work-other",
+      title: "Continue social-compliance refactor",
+      summary: "Parallel work in another active project.",
       semantic_role: "work_item",
       kind_key: "work_item",
       entity_type: "task",
-      provenance_type: "operating_rule",
-      updated_at: "2026-03-21T18:00:00.000Z",
-      project_id: "project-ruksak",
-      project_slug: "ruksak",
+      provenance_type: "synthesized_context",
+      updated_at: "2026-03-22T08:30:00.000Z",
+      project_id: "project-reelez",
+      project_slug: "reelez",
       project_type: "build",
       parent_project_id: null,
       source_project_id: null,
@@ -111,66 +123,9 @@ const normalized = {
       data: { priority: "medium", status: "active" }
     }
   ],
-  lessons: [
-    {
-      id: "lesson-1",
-      title: "Prompt-only opens are weaker than repo/cwd inference",
-      summary: "Use repo and cwd signals strongly where available.",
-      semantic_role: "lesson",
-      kind_key: "lesson",
-      entity_type: "learning",
-      provenance_type: "synthesized_context",
-      updated_at: "2026-03-22T07:00:00.000Z",
-      project_id: "project-ruksak",
-      project_slug: "ruksak",
-      project_type: "build",
-      parent_project_id: null,
-      source_project_id: null,
-      source_project_slug: null,
-      source_ref: null,
-      data: {}
-    }
-  ],
-  decisions: [
-    {
-      id: "decision-1",
-      title: "Use Ruksak directly in Codex during development",
-      summary: "Use the mounted MCP to reduce drift.",
-      semantic_role: "decision",
-      kind_key: "decision",
-      entity_type: "decision",
-      provenance_type: "meta_system_design",
-      updated_at: "2026-03-22T08:37:28.661Z",
-      project_id: "project-ruksak",
-      project_slug: "ruksak",
-      project_type: "build",
-      parent_project_id: null,
-      source_project_id: null,
-      source_project_slug: null,
-      source_ref: null,
-      data: {}
-    }
-  ],
-  references: [
-    {
-      id: "reference-1",
-      title: "OpenAI MCP docs",
-      summary: "Reference for ChatGPT and remote MCP behavior.",
-      semantic_role: "reference",
-      kind_key: "reference",
-      entity_type: "reference",
-      provenance_type: "source_material",
-      updated_at: "2026-03-21T18:00:00.000Z",
-      project_id: "project-ruksak",
-      project_slug: "ruksak",
-      project_type: "build",
-      parent_project_id: null,
-      source_project_id: "project-ruksak",
-      source_project_slug: "ruksak",
-      source_ref: { url: "https://platform.openai.com" },
-      data: {}
-    }
-  ],
+  lessons: [],
+  decisions: [],
+  references: [],
   recent_updates: [
     {
       id: "update-1",
@@ -181,86 +136,17 @@ const normalized = {
   ]
 };
 
-test("first-time chatgpt session stays in safe orientation mode", () => {
-  const envelope = composeOpenRuksakEnvelope({
-    user: baseUser,
-    profile: {
-      key: "chatgpt",
-      profile: "codex_v1",
-      source: "explicit_hint",
-      label: "codex_v1"
-    },
-    resolution: {
-      projectId: null,
-      confidence: 0.42,
-      resolutionSource: "user_level_context",
-      resolutionExplanation: ["No project signals were strong enough to resolve a project."],
-      resolutionSignalBreakdown: { explicit: [], environment: [], semantic: [], affinity: [] },
-      recommendedActions: ["stay_in_user_level_context", "create_new_project"],
-      candidateProjects: [candidateRuksak],
-      clarificationRequired: true
-    },
-    structureProfile,
-    workspaceUrl: "https://www.ruksak.ai/app",
-    generatedAt: "2026-03-22T09:00:00.000Z",
-    normalized,
-    recentUpdates: normalized.recent_updates,
-    storedClientSessionExists: false
-  });
-
-  assert.equal(envelope.agent_status.is_registered, false);
-  assert.equal(envelope.guidance.mode, "unregistered_agent_safe_mode");
-  assert.equal(envelope.metadata.resolved_project.id, null);
-  assert.ok(envelope.orientation.likely_projects.length > 0);
-  assert.ok(envelope.guidance.required_approvals.includes("agent_registration"));
-});
-
-test("returning chatgpt session reopens likely project with light confirmation behavior", () => {
-  const envelope = composeOpenRuksakEnvelope({
-    user: baseUser,
-    profile: {
-      key: "chatgpt",
-      profile: "codex_v1",
-      source: "explicit_hint",
-      label: "codex_v1"
-    },
-    resolution: {
-      projectId: "project-ruksak",
-      confidence: 0.82,
-      resolutionSource: "session_affinity",
-      resolutionExplanation: ["recent session history points here"],
-      resolutionSignalBreakdown: {
-        explicit: [],
-        environment: [],
-        semantic: [],
-        affinity: ["session_affinity"]
-      },
-      recommendedActions: ["open_existing_project"],
-      candidateProjects: [candidateRuksak],
-      clarificationRequired: false
-    },
-    structureProfile,
-    workspaceUrl: "https://www.ruksak.ai/app",
-    generatedAt: "2026-03-22T09:00:00.000Z",
-    normalized,
-    recentUpdates: normalized.recent_updates,
-    storedClientSessionExists: true
-  });
-
-  assert.equal(envelope.agent_status.is_registered, true);
-  assert.equal(envelope.metadata.resolved_project.name, "Ruksak");
-  assert.equal(envelope.metadata.resolved_project.confidence, "medium");
-  assert.equal(envelope.guidance.mode, "medium_confidence_confirm");
-  assert.equal(envelope.inspect.workspace_url, "https://www.ruksak.ai/app");
-});
-
-test("codex repo scenario reopens likely project and ranks current work ahead of operator background", () => {
+test("project mode returns focused project metadata", () => {
   const envelope = composeOpenRuksakEnvelope({
     user: baseUser,
     profile: baseProfile,
     resolution: {
-      projectId: "project-ruksak",
+      mode: "project",
+      focusProjectId: "project-ruksak",
+      focusCandidates: [candidateRuksak],
+      activePortfolio: [candidateRuksak, candidateReelez],
       confidence: 0.99,
+      confidenceLabel: "high",
       resolutionSource: "repo_mapping",
       resolutionExplanation: ["repository matched an existing project"],
       resolutionSignalBreakdown: {
@@ -269,9 +155,10 @@ test("codex repo scenario reopens likely project and ranks current work ahead of
         semantic: [],
         affinity: []
       },
-      recommendedActions: ["open_existing_project"],
-      candidateProjects: [candidateRuksak],
-      clarificationRequired: false
+      clarificationRequired: false,
+      newProjectRecommended: false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
     },
     structureProfile,
     workspaceUrl: "https://www.ruksak.ai/app",
@@ -281,31 +168,73 @@ test("codex repo scenario reopens likely project and ranks current work ahead of
     storedClientSessionExists: true
   });
 
-  assert.equal(envelope.guidance.mode, "high_confidence_auto_open");
-  assert.equal(envelope.context.current_priorities[0]?.title, "Introduce proposal-backed reviewable writes");
-  assert.match(String(envelope.context.current_context_summary[2]), /Ruksak current state/);
-  assert.match(String(envelope.context.current_context_summary[3]), /Operator profile/);
-  assert.equal(envelope.context.grouping_summary.by_provenance_type.source_material, 1);
+  assert.equal(envelope.metadata.context_mode, "project");
+  assert.equal(envelope.metadata.focus.project_name, "Ruksak");
+  assert.equal(envelope.guidance.mode, "focused_project");
+  assert.equal(envelope.inspect.paths.focus_project, "/app?project=ruksak");
 });
 
-test("unregistered weak-context agent offers likely projects or new-project path", () => {
+test("multi-project mode keeps candidate projects without binding one focus", () => {
   const envelope = composeOpenRuksakEnvelope({
     user: baseUser,
-    profile: {
-      key: "unknown-client",
-      profile: "default_v1",
-      source: "fallback",
-      label: "default_v1"
-    },
+    profile: baseProfile,
     resolution: {
-      projectId: null,
-      confidence: 0.18,
-      resolutionSource: "user_level_context",
-      resolutionExplanation: ["No project signals were strong enough to resolve a project."],
-      resolutionSignalBreakdown: { explicit: [], environment: [], semantic: [], affinity: [] },
-      recommendedActions: ["stay_in_user_level_context", "create_new_project"],
-      candidateProjects: [],
-      clarificationRequired: true
+      mode: "multi_project",
+      focusProjectId: null,
+      focusCandidates: [candidateRuksak, candidateReelez],
+      activePortfolio: [candidateRuksak, candidateReelez],
+      confidence: 0.74,
+      confidenceLabel: "medium",
+      resolutionSource: "request_text_plurality",
+      resolutionExplanation: ["request text implies multiple active projects"],
+      resolutionSignalBreakdown: {
+        explicit: [],
+        environment: [],
+        semantic: ["request_text_plurality"],
+        affinity: []
+      },
+      clarificationRequired: false,
+      newProjectRecommended: false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
+    },
+    structureProfile,
+    workspaceUrl: "https://www.ruksak.ai/app",
+    generatedAt: "2026-03-22T09:00:00.000Z",
+    normalized,
+    recentUpdates: normalized.recent_updates,
+    storedClientSessionExists: true
+  });
+
+  assert.equal(envelope.metadata.context_mode, "multi_project");
+  assert.equal(envelope.metadata.focus.project_id, null);
+  assert.equal(envelope.metadata.focus_candidates.length, 2);
+  assert.equal(envelope.guidance.mode, "multi_project");
+});
+
+test("portfolio mode surfaces active portfolio", () => {
+  const envelope = composeOpenRuksakEnvelope({
+    user: baseUser,
+    profile: baseProfile,
+    resolution: {
+      mode: "portfolio",
+      focusProjectId: null,
+      focusCandidates: [candidateRuksak],
+      activePortfolio: [candidateRuksak, candidateReelez],
+      confidence: 0.68,
+      confidenceLabel: "low",
+      resolutionSource: "portfolio_inference",
+      resolutionExplanation: ["request text implies portfolio-level context"],
+      resolutionSignalBreakdown: {
+        explicit: [],
+        environment: [],
+        semantic: ["request_text_portfolio"],
+        affinity: []
+      },
+      clarificationRequired: false,
+      newProjectRecommended: false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
     },
     structureProfile,
     workspaceUrl: "https://www.ruksak.ai/app",
@@ -315,8 +244,44 @@ test("unregistered weak-context agent offers likely projects or new-project path
     storedClientSessionExists: false
   });
 
-  assert.equal(envelope.guidance.mode, "unregistered_agent_safe_mode");
+  assert.equal(envelope.metadata.context_mode, "portfolio");
+  assert.equal(envelope.orientation.active_portfolio.length, 2);
+  assert.equal(envelope.guidance.mode, "portfolio");
+});
+
+test("new project candidate mode recommends creation", () => {
+  const envelope = composeOpenRuksakEnvelope({
+    user: baseUser,
+    profile: baseProfile,
+    resolution: {
+      mode: "new_project_candidate",
+      focusProjectId: null,
+      focusCandidates: [candidateRuksak],
+      activePortfolio: [candidateRuksak],
+      confidence: 0.38,
+      confidenceLabel: "low",
+      resolutionSource: "new_project_candidate",
+      resolutionExplanation: ["No existing project matched strongly and the request looks like distinct new work."],
+      resolutionSignalBreakdown: {
+        explicit: [],
+        environment: [],
+        semantic: ["request_text_new_context"],
+        affinity: []
+      },
+      clarificationRequired: false,
+      newProjectRecommended: true,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
+    },
+    structureProfile,
+    workspaceUrl: "https://www.ruksak.ai/app",
+    generatedAt: "2026-03-22T09:00:00.000Z",
+    normalized,
+    recentUpdates: normalized.recent_updates,
+    storedClientSessionExists: false
+  });
+
+  assert.equal(envelope.metadata.context_mode, "new_project_candidate");
+  assert.equal(envelope.metadata.new_project_recommended, true);
   assert.ok(envelope.guidance.required_approvals.includes("project_create"));
-  assert.ok(envelope.guidance.required_approvals.includes("context_write"));
-  assert.ok(envelope.guidance.clarifications_needed.includes("confirm_or_create_project"));
 });

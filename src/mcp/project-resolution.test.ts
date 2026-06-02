@@ -27,7 +27,7 @@ const userOsProject = {
   description: "Reference MCP server and auth implementation"
 };
 
-test("resolves a single strongly matched project without clarification", () => {
+test("resolves a single strongly matched project", () => {
   const resolution = finalizeProjectResolution({
     userProjects: [ruksakProject],
     rankedCandidates: [
@@ -39,10 +39,9 @@ test("resolves a single strongly matched project without clarification", () => {
     ]
   });
 
-  assert.equal(resolution.projectId, "project-ruksak");
+  assert.equal(resolution.mode, "project");
+  assert.equal(resolution.focusProjectId, "project-ruksak");
   assert.equal(resolution.clarificationRequired, false);
-  assert.equal(resolution.resolutionSource, "request_text_exact_project");
-  assert.ok(resolution.resolutionExplanation.length > 0);
   assert.ok(resolution.confidence >= 0.75);
 });
 
@@ -52,14 +51,12 @@ test("keeps user-level context when there is no project signal", () => {
     rankedCandidates: []
   });
 
-  assert.equal(resolution.projectId, null);
-  assert.equal(resolution.clarificationRequired, false);
-  assert.equal(resolution.resolutionSource, "user_level_context");
-  assert.equal(resolution.candidateProjects[0]?.slug, "ruksak");
-  assert.ok(resolution.recommendedActions.includes("stay_in_user_level_context"));
+  assert.equal(resolution.mode, "user");
+  assert.equal(resolution.focusProjectId, null);
+  assert.equal(resolution.activePortfolio[0]?.slug, "ruksak");
 });
 
-test("requires clarification when candidates are too close", () => {
+test("uses multi-project mode when candidates are close", () => {
   const resolution = finalizeProjectResolution({
     userProjects: [ruksakProject, userOsProject],
     rankedCandidates: [
@@ -76,35 +73,28 @@ test("requires clarification when candidates are too close", () => {
     ]
   });
 
-  assert.equal(resolution.projectId, null);
-  assert.equal(resolution.clarificationRequired, true);
-  assert.equal(resolution.candidateProjects.length, 2);
-  assert.ok(resolution.recommendedActions.includes("choose_existing_project"));
+  assert.equal(resolution.mode, "multi_project");
+  assert.equal(resolution.focusProjectId, null);
+  assert.equal(resolution.focusCandidates.length, 2);
 });
 
-test("allows current project affinity to resolve when it is the only meaningful signal", () => {
+test("does not force project mode from affinity alone", () => {
   const resolution = finalizeProjectResolution({
     userProjects: [ruksakProject, userOsProject],
     rankedCandidates: [
       {
         project: ruksakProject,
-        score: 44,
-        signals: ["current_project_affinity", "request_text_token_overlap"]
-      },
-      {
-        project: userOsProject,
-        score: 0,
-        signals: []
+        score: 24,
+        signals: ["current_project_affinity", "session_affinity"]
       }
     ]
   });
 
-  assert.equal(resolution.projectId, "project-ruksak");
-  assert.equal(resolution.clarificationRequired, false);
-  assert.ok(resolution.confidence >= 0.7);
+  assert.equal(resolution.mode, "portfolio");
+  assert.equal(resolution.focusProjectId, null);
 });
 
-test("keeps clarification on when the only signal is affinity toward a build project but the request implies a new foundation", () => {
+test("returns new project candidate when distinct new work is implied", () => {
   const resolution = finalizeProjectResolution({
     userProjects: [ruksakProject, userOsProject],
     rankedCandidates: [
@@ -112,16 +102,28 @@ test("keeps clarification on when the only signal is affinity toward a build pro
         project: ruksakProject,
         score: 22,
         signals: ["request_text_new_context", "session_affinity"]
-      },
-      {
-        project: userOsProject,
-        score: 20,
-        signals: ["request_text_project_type_match"]
       }
-    ]
+    ],
+    newProjectLikely: true
   });
 
-  assert.equal(resolution.projectId, null);
-  assert.equal(resolution.clarificationRequired, true);
-  assert.ok(resolution.recommendedActions.includes("create_new_foundation_or_workstream"));
+  assert.equal(resolution.mode, "new_project_candidate");
+  assert.equal(resolution.newProjectRecommended, true);
+});
+
+test("returns portfolio mode for broad portfolio requests", () => {
+  const resolution = finalizeProjectResolution({
+    userProjects: [ruksakProject, userOsProject],
+    rankedCandidates: [
+      {
+        project: ruksakProject,
+        score: 36,
+        signals: ["request_text_token_overlap"]
+      }
+    ],
+    portfolioLikely: true
+  });
+
+  assert.equal(resolution.mode, "portfolio");
+  assert.equal(resolution.focusProjectId, null);
 });

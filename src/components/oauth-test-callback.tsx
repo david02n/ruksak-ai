@@ -8,9 +8,9 @@ const SESSION_KEY = "ruksak_oauth_test";
 type Phase = "exchanging" | "running" | "done" | "error";
 
 type ResultPayload = {
-  access_token: string;
   userinfo: Record<string, unknown>;
   smoke: Record<string, unknown>;
+  scope?: string;
 };
 
 export function OAuthTestCallback() {
@@ -34,7 +34,6 @@ export function OAuthTestCallback() {
 
         const sessionData = JSON.parse(stored) as {
           client_id: string;
-          client_secret?: string;
           redirect_uri: string;
           state: string;
           code_verifier: string;
@@ -53,7 +52,6 @@ export function OAuthTestCallback() {
             grant_type: "authorization_code",
             code,
             client_id: sessionData.client_id,
-            client_secret: sessionData.client_secret ?? "",
             redirect_uri: sessionData.redirect_uri,
             code_verifier: sessionData.code_verifier
           })
@@ -65,6 +63,7 @@ export function OAuthTestCallback() {
           throw new Error(tokenPayload.error_description ?? "Token exchange failed.");
         }
 
+        sessionStorage.removeItem(SESSION_KEY);
         setPhase("running");
 
         const [userinfoResponse, smokeResponse] = await Promise.all([
@@ -101,9 +100,9 @@ export function OAuthTestCallback() {
 
         if (!cancelled) {
           setResult({
-            access_token: tokenPayload.access_token,
             userinfo: userinfoPayload,
-            smoke: smokePayload
+            smoke: smokePayload,
+            scope: typeof tokenPayload.scope === "string" ? tokenPayload.scope : undefined
           });
           setPhase("done");
         }
@@ -148,7 +147,7 @@ export function OAuthTestCallback() {
         <span className="card-tag">Success</span>
         <h3>OAuth flow succeeded</h3>
         <p>The browser authorization, token exchange, userinfo call, and authenticated MCP call all completed.</p>
-        <code className="inline-code-block">{result.access_token}</code>
+        <p>{result.scope ? `Issued scope: ${result.scope}` : "Issued token was kept in-memory for the smoke test only."}</p>
       </article>
       <article className="card">
         <span className="card-tag">Userinfo</span>

@@ -19,12 +19,12 @@ export default function HomePage() {
         <p className="simple-why">{landingCopy.whyThisExists}</p>
         <div className="cta-row">
           <Show when="signed-out">
-            <SignInButton mode="redirect" fallbackRedirectUrl="/app">
+            <SignInButton mode="redirect" forceRedirectUrl="/app">
               <button className="button" type="button">
                 Sign in
               </button>
             </SignInButton>
-            <SignUpButton mode="redirect" fallbackRedirectUrl="/app">
+            <SignUpButton mode="redirect" forceRedirectUrl="/app">
               <button className="button-secondary" type="button">
                 Sign up
               </button>

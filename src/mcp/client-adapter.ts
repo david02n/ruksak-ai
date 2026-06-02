@@ -17,10 +17,12 @@ function itemLimit(profile: ResolvedClient["profile"]) {
 }
 
 function buildClientBrief(profile: ResolvedClient["profile"], envelope: OpenRuksakEnvelope) {
+  const focusName = envelope.metadata.focus.project_name;
+  const mode = envelope.metadata.context_mode;
   const lines = [
-    envelope.metadata.resolved_project.name
-      ? `Resolved project: ${envelope.metadata.resolved_project.name}`
-      : "Project context is unresolved; user-level orientation returned.",
+    focusName
+      ? `Focused project: ${focusName}`
+      : `Context mode: ${mode}`,
     `Active work items: ${envelope.context.active_work_items.length}`,
     `Recent lessons: ${envelope.context.recent_lessons.length}`,
     `Recent updates: ${envelope.context.recent_updates.length}`
@@ -48,11 +50,13 @@ export function adaptContextForClient(input: {
     ...input.envelope,
     metadata: {
       ...input.envelope.metadata,
-      candidate_projects: input.envelope.metadata.candidate_projects.slice(0, limit)
+      focus_candidates: input.envelope.metadata.focus_candidates.slice(0, limit),
+      active_portfolio: input.envelope.metadata.active_portfolio.slice(0, limit)
     },
     orientation: {
       user_priorities: input.envelope.orientation.user_priorities.slice(0, Math.min(3, limit)),
-      likely_projects: input.envelope.orientation.likely_projects.slice(0, limit)
+      focus_candidates: input.envelope.orientation.focus_candidates.slice(0, limit),
+      active_portfolio: input.envelope.orientation.active_portfolio.slice(0, limit)
     },
     context: {
       current_context_summary: input.envelope.context.current_context_summary.slice(0, limit),

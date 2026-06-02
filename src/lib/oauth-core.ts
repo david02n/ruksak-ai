@@ -10,16 +10,28 @@ export function isLoopbackRedirectUri(uri: string) {
   }
 }
 
+export function isSecureRedirectUri(uri: string) {
+  try {
+    const parsed = new URL(uri);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function resolveTokenEndpointAuthMethod(input: {
   requestedAuthMethod?: string;
   redirectUris?: string[];
 }) {
   const requested = input.requestedAuthMethod;
   const redirectUris = input.redirectUris ?? [];
-  const hasLoopbackRedirect =
-    redirectUris.length > 0 && redirectUris.every((uri) => isLoopbackRedirectUri(uri));
+  const supportsPublicPkce =
+    redirectUris.length > 0 &&
+    redirectUris.every(
+      (uri) => isLoopbackRedirectUri(uri) || isSecureRedirectUri(uri)
+    );
 
-  if (requested === "none" && hasLoopbackRedirect) {
+  if ((!requested || requested === "none") && supportsPublicPkce) {
     return "none";
   }
 

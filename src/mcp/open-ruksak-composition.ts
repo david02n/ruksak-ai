@@ -1,6 +1,11 @@
 import "server-only";
 
-import type { CandidateProject, ProjectResolution, ResolvedClient } from "@/mcp/project-resolution";
+import type {
+  CandidateProject,
+  ContextMode,
+  ContextResolution,
+  ResolvedClient
+} from "@/mcp/project-resolution";
 import type { NormalizedContext, NormalizedContextItem } from "@/mcp/context-normalization";
 
 type UserSummary = {
@@ -23,24 +28,25 @@ type AgentStatus = {
 };
 
 type GuidanceMode =
-  | "high_confidence_auto_open"
-  | "medium_confidence_confirm"
-  | "low_confidence_choose_from_candidates"
-  | "unregistered_agent_safe_mode";
+  | "focused_project"
+  | "multi_project"
+  | "portfolio"
+  | "user"
+  | "new_project_candidate";
 
 type OpenRuksakEnvelope = {
   metadata: {
     resolved_client: string;
-    resolved_project: {
-      id: string | null;
-      name: string | null;
-      slug: string | null;
+    context_mode: ContextMode;
+    focus: {
+      project_id: string | null;
+      project_name: string | null;
+      project_slug: string | null;
       project_type: string | null;
-      parent_project: {
-        id: string | null;
-      } | null;
       confidence: "low" | "medium" | "high";
-      resolution_source: string;
+      source: string;
+      session_focus_applied: boolean;
+      explicit_override_applied: boolean;
     };
     confidence: number;
     resolution_source: string;
@@ -51,9 +57,10 @@ type OpenRuksakEnvelope = {
       semantic: string[];
       affinity: string[];
     };
-    recommended_actions: string[];
     clarification_required: boolean;
-    candidate_projects: CandidateProject[];
+    new_project_recommended: boolean;
+    focus_candidates: CandidateProject[];
+    active_portfolio: CandidateProject[];
     structure_profile: {
       id: string;
       slug: string;
@@ -65,7 +72,8 @@ type OpenRuksakEnvelope = {
   agent_status: AgentStatus;
   orientation: {
     user_priorities: Array<Record<string, unknown>>;
-    likely_projects: CandidateProject[];
+    focus_candidates: CandidateProject[];
+    active_portfolio: CandidateProject[];
   };
   context: {
     current_context_summary: string[];
@@ -98,7 +106,7 @@ type OpenRuksakEnvelope = {
     workspace_url: string;
     paths: {
       workspace: string;
-      current_project: string | null;
+      focus_project: string | null;
       projects: string;
       dashboard: string;
     };
@@ -135,30 +143,45 @@ function safeTimestamp(value?: string | null) {
   return value ? Date.parse(value) || 0 : 0;
 }
 
-function confidenceLabel(value: number) {
-  if (value >= 0.9) {
-    return "high" as const;
-  }
-
-  if (value >= 0.7) {
-    return "medium" as const;
-  }
-
-  return "low" as const;
-}
-
 function compareNewest(left: string, right: string) {
   return safeTimestamp(right) - safeTimestamp(left);
 }
 
+function preferredProjectIds(input: {
+  mode: ContextMode;
+  focusProjectId: string | null;
+  focusCandidates: CandidateProject[];
+  activePortfolio: CandidateProject[];
+}) {
+  if (input.mode === "project" && input.focusProjectId) {
+    return [input.focusProjectId];
+  }
+
+  if (input.mode === "multi_project") {
+    return input.focusCandidates.slice(0, 3).map((candidate) => candidate.id);
+  }
+
+  if (input.mode === "portfolio") {
+    return input.activePortfolio.slice(0, 4).map((candidate) => candidate.id);
+  }
+
+  if (input.mode === "new_project_candidate") {
+    return input.focusCandidates.slice(0, 2).map((candidate) => candidate.id);
+  }
+
+  return [];
+}
+
 function rankProjectScopedItems(
   items: NormalizedContextItem[],
-  resolvedProjectId: string | null,
+  preferredIds: string[],
   role: "summary" | "work_item" | "lesson" | "decision" | "reference"
 ) {
+  const preferredSet = new Set(preferredIds);
+
   return [...items].sort((left, right) => {
-    const leftProjectMatch = resolvedProjectId && left.project_id === resolvedProjectId ? 1 : 0;
-    const rightProjectMatch = resolvedProjectId && right.project_id === resolvedProjectId ? 1 : 0;
+    const leftProjectMatch = left.project_id && preferredSet.has(left.project_id) ? 1 : 0;
+    const rightProjectMatch = right.project_id && preferredSet.has(right.project_id) ? 1 : 0;
 
     if (leftProjectMatch !== rightProjectMatch) {
       return rightProjectMatch - leftProjectMatch;
@@ -193,68 +216,6 @@ function rankProjectScopedItems(
   });
 }
 
-function buildSummaryLines(input: {
-  user: UserSummary;
-  resolvedProject: CandidateProject | null;
-  rankedSummary: NormalizedContextItem[];
-  activeWorkItems: Array<Record<string, unknown>>;
-  lessonsCount: number;
-  updatesCount: number;
-}) {
-  const name = input.user.displayName ?? input.user.primaryEmail;
-  const lines = [
-    input.resolvedProject
-      ? `${name}'s active project context is ${input.resolvedProject.name}.`
-      : `${name}'s user-level Ruksak context is active.`,
-    `There are ${input.activeWorkItems.length} active work items, ${input.lessonsCount} recent lessons, and ${input.updatesCount} recent changes.`
-  ];
-
-  const projectSummary = input.rankedSummary.find((item) => !/operator profile/i.test(item.title));
-  if (projectSummary) {
-    lines.push(projectSummary.summary ? `${projectSummary.title}: ${projectSummary.summary}` : projectSummary.title);
-  }
-
-  const operatorSummary = input.rankedSummary.find((item) => /operator profile/i.test(item.title));
-  if (operatorSummary) {
-    lines.push(operatorSummary.summary ? `${operatorSummary.title}: ${operatorSummary.summary}` : operatorSummary.title);
-  }
-
-  return lines;
-}
-
-function buildSuggestedNextActions(input: {
-  mode: GuidanceMode;
-  clarificationRequired: boolean;
-  candidateProjects: CandidateProject[];
-  recommendedActions: string[];
-  currentPriorities: Array<{ title: string; summary: string | null }>;
-}) {
-  const nextActions: string[] = [];
-
-  if (input.mode === "low_confidence_choose_from_candidates") {
-    if (input.recommendedActions.includes("create_new_foundation_or_workstream")) {
-      nextActions.push("Treat this as a likely new foundation or workstream instead of auto-opening an existing build project.");
-    } else if (input.candidateProjects.length) {
-      nextActions.push(
-        `Confirm the project context. Likely projects: ${input.candidateProjects
-          .slice(0, 3)
-          .map((project) => project.name)
-          .join(", ")}.`
-      );
-    } else {
-      nextActions.push("Confirm whether this is an existing project or a new project.");
-    }
-  } else if (input.mode === "medium_confidence_confirm" || input.clarificationRequired) {
-    nextActions.push("Confirm the current project before treating the active context as authoritative.");
-  }
-
-  input.currentPriorities.slice(0, 2).forEach((item) => {
-    nextActions.push(`Continue "${item.title}"${item.summary ? ` — ${item.summary}` : ""}.`);
-  });
-
-  return nextActions;
-}
-
 function buildAgentStatus(input: {
   storedClientSessionExists: boolean;
 }) {
@@ -266,23 +227,26 @@ function buildAgentStatus(input: {
   } satisfies AgentStatus;
 }
 
-function buildGuidance(input: {
-  resolution: ProjectResolution;
-  agentStatus: AgentStatus;
-  candidateProjects: CandidateProject[];
-}) {
-  let mode: GuidanceMode;
-
-  if (!input.agentStatus.is_registered && (input.resolution.clarificationRequired || !input.resolution.projectId)) {
-    mode = "unregistered_agent_safe_mode";
-  } else if (input.resolution.projectId && input.resolution.confidence >= 0.9 && !input.resolution.clarificationRequired) {
-    mode = "high_confidence_auto_open";
-  } else if (input.resolution.confidence >= 0.7 && input.candidateProjects.length) {
-    mode = "medium_confidence_confirm";
-  } else {
-    mode = "low_confidence_choose_from_candidates";
+function guidanceModeForContext(mode: ContextMode): GuidanceMode {
+  switch (mode) {
+    case "project":
+      return "focused_project";
+    case "multi_project":
+      return "multi_project";
+    case "portfolio":
+      return "portfolio";
+    case "new_project_candidate":
+      return "new_project_candidate";
+    default:
+      return "user";
   }
+}
 
+function buildGuidance(input: {
+  resolution: ContextResolution;
+  agentStatus: AgentStatus;
+}) {
+  const mode = guidanceModeForContext(input.resolution.mode);
   const instructions: string[] = [];
   const requiredApprovals = new Set<
     "context_write" | "agent_registration" | "project_binding_create" | "project_create"
@@ -291,52 +255,97 @@ function buildGuidance(input: {
 
   if (!input.agentStatus.is_registered) {
     instructions.push("Explain that this agent is not yet registered in Ruksak.");
-    instructions.push("Stay in safe orientation mode until the user confirms project context and approves durable writes.");
     requiredApprovals.add("agent_registration");
   }
 
-  switch (mode) {
-    case "high_confidence_auto_open":
-      instructions.push("Reopen the most likely project context and explain briefly why it was chosen.");
-      instructions.push("Use light confirmation rather than forcing a full project-selection step.");
+  switch (input.resolution.mode) {
+    case "project":
+      instructions.push("Load deep project context and proceed without asking for project confirmation.");
       break;
-    case "medium_confidence_confirm":
-      instructions.push("Present the likely project and ask the user to confirm before relying on deep project detail.");
-      if (input.resolution.recommendedActions.includes("create_new_foundation_or_workstream")) {
-        instructions.push("Offer a new foundation or workstream path rather than implying one of the existing projects must be correct.");
-      }
-      clarificationsNeeded.push("confirm_current_project");
-      requiredApprovals.add("project_binding_create");
+    case "multi_project":
+      instructions.push("Stay in cross-project mode unless the next action requires a single bound project.");
       break;
-    case "low_confidence_choose_from_candidates":
-      instructions.push("Stay at user-orientation level and present likely projects, a new-project path, or a new foundation/workstream path.");
-      instructions.push("Do not assume the correct project from weak signals alone.");
-      clarificationsNeeded.push("choose_project");
-      if (!input.candidateProjects.length) {
-        requiredApprovals.add("project_create");
-      }
+    case "portfolio":
+      instructions.push("Stay at portfolio level and prioritize active work across projects.");
       break;
-    case "unregistered_agent_safe_mode":
-      instructions.push("Offer likely projects or a new-project path before opening deep project detail.");
-      instructions.push("Ask whether the user wants this agent or session recorded in Ruksak.");
-      clarificationsNeeded.push("choose_project");
-      requiredApprovals.add("context_write");
+    case "new_project_candidate":
+      instructions.push("Treat this as likely distinct new work, not an automatic match to an existing project.");
+      requiredApprovals.add("project_create");
+      break;
+    case "user":
+      instructions.push("Stay in user-level orientation until a project-specific signal appears.");
       break;
   }
 
-  if (!input.resolution.projectId) {
-    clarificationsNeeded.push("confirm_or_create_project");
-    if (!input.candidateProjects.length) {
-      requiredApprovals.add("project_create");
-    }
+  if (input.resolution.clarificationRequired) {
+    clarificationsNeeded.push("confirm_focus_project");
   }
 
   return {
     mode,
     instructions,
     required_approvals: Array.from(requiredApprovals),
-    clarifications_needed: Array.from(new Set(clarificationsNeeded))
+    clarifications_needed: clarificationsNeeded
   };
+}
+
+function buildSummaryLines(input: {
+  user: UserSummary;
+  resolution: ContextResolution;
+  focusProject: CandidateProject | null;
+  activeWorkItems: Array<Record<string, unknown>>;
+  lessonsCount: number;
+  updatesCount: number;
+}) {
+  const name = input.user.displayName ?? input.user.primaryEmail;
+
+  const opener =
+    input.resolution.mode === "project" && input.focusProject
+      ? `${name}'s current request focus is ${input.focusProject.name}.`
+      : input.resolution.mode === "multi_project"
+        ? `${name}'s current request spans multiple likely projects.`
+        : input.resolution.mode === "portfolio"
+          ? `${name}'s portfolio context is active for this request.`
+          : input.resolution.mode === "new_project_candidate"
+            ? `${name}'s request looks like distinct new work that may become a new project.`
+            : `${name}'s user-level Ruksak context is active.`;
+
+  return [
+    opener,
+    `There are ${input.activeWorkItems.length} active work items, ${input.lessonsCount} recent lessons, and ${input.updatesCount} recent changes.`,
+    ...input.resolution.resolutionExplanation
+  ];
+}
+
+function buildSuggestedNextActions(input: {
+  resolution: ContextResolution;
+  currentPriorities: Array<{ title: string; summary: string | null }>;
+}) {
+  const nextActions: string[] = [];
+
+  switch (input.resolution.mode) {
+    case "project":
+      nextActions.push("Continue in the focused project context.");
+      break;
+    case "multi_project":
+      nextActions.push("Stay in multi-project mode unless the next action requires one bound project.");
+      break;
+    case "portfolio":
+      nextActions.push("Work from the active portfolio rather than forcing a single project focus.");
+      break;
+    case "new_project_candidate":
+      nextActions.push("Create a new project or workstream if the request truly does not fit an existing one.");
+      break;
+    case "user":
+      nextActions.push("Stay at user-level context until a stronger project signal appears.");
+      break;
+  }
+
+  input.currentPriorities.slice(0, 2).forEach((item) => {
+    nextActions.push(`Continue "${item.title}"${item.summary ? ` — ${item.summary}` : ""}.`);
+  });
+
+  return nextActions;
 }
 
 function buildProvisioning(input: {
@@ -345,7 +354,7 @@ function buildProvisioning(input: {
   guidanceMode: GuidanceMode;
 }) {
   const instructions = [
-    "Use open_ruksak first to establish current working context before making durable changes."
+    "Use open_ruksak first to establish request-scoped context before making durable changes."
   ];
 
   if (input.agentStatus.registration_recommended) {
@@ -357,8 +366,8 @@ function buildProvisioning(input: {
     required_tools: ["open_ruksak"],
     instructions,
     constraints: [
-      "Do not persist context changes without user approval.",
-      "Do not assume project bindings from weak signals."
+      "Do not persist inferred project focus between requests.",
+      "Do not assume a single project when portfolio or multi-project mode is sufficient."
     ],
     client_preferences: {
       profile: input.profile.profile,
@@ -369,15 +378,24 @@ function buildProvisioning(input: {
 
 function buildClientBrief(input: {
   profile: ResolvedClient["profile"];
-  resolvedProject: CandidateProject | null;
+  resolution: ContextResolution;
+  focusProject: CandidateProject | null;
   activeWorkItems: Array<Record<string, unknown>>;
   recentLessons: Array<Record<string, unknown>>;
   recentUpdates: Array<Record<string, unknown>>;
 }) {
+  const modeLine =
+    input.resolution.mode === "project" && input.focusProject
+      ? `Focused project: ${input.focusProject.name}`
+      : input.resolution.mode === "multi_project"
+        ? "Context mode: multi-project"
+        : input.resolution.mode === "portfolio"
+          ? "Context mode: portfolio"
+          : input.resolution.mode === "new_project_candidate"
+            ? "Context mode: new project candidate"
+            : "Context mode: user";
   const lines = [
-    input.resolvedProject
-      ? `Resolved project: ${input.resolvedProject.name}`
-      : "Project context is unresolved; user-level orientation returned.",
+    modeLine,
     `Active work items: ${input.activeWorkItems.length}`,
     `Recent lessons: ${input.recentLessons.length}`,
     `Recent updates: ${input.recentUpdates.length}`
@@ -398,7 +416,7 @@ function buildClientBrief(input: {
 export function composeOpenRuksakEnvelope(input: {
   user: UserSummary;
   profile: ResolvedClient;
-  resolution: ProjectResolution;
+  resolution: ContextResolution;
   structureProfile: {
     id: string;
     slug: string;
@@ -411,14 +429,25 @@ export function composeOpenRuksakEnvelope(input: {
   recentUpdates: RecentUpdate[];
   storedClientSessionExists: boolean;
 }) {
-  const resolvedProject =
-    input.resolution.candidateProjects.find((candidate) => candidate.id === input.resolution.projectId) ?? null;
-
-  const rankedSummary = rankProjectScopedItems(input.normalized.summary, input.resolution.projectId, "summary");
-  const rankedWorkItems = rankProjectScopedItems(input.normalized.work_items, input.resolution.projectId, "work_item");
-  const rankedLessons = rankProjectScopedItems(input.normalized.lessons, input.resolution.projectId, "lesson");
-  const rankedDecisions = rankProjectScopedItems(input.normalized.decisions, input.resolution.projectId, "decision");
-  const rankedReferences = rankProjectScopedItems(input.normalized.references, input.resolution.projectId, "reference");
+  const focusProject =
+    input.resolution.activePortfolio.find(
+      (candidate) => candidate.id === input.resolution.focusProjectId
+    ) ??
+    input.resolution.focusCandidates.find(
+      (candidate) => candidate.id === input.resolution.focusProjectId
+    ) ??
+    null;
+  const preferredIds = preferredProjectIds({
+    mode: input.resolution.mode,
+    focusProjectId: input.resolution.focusProjectId,
+    focusCandidates: input.resolution.focusCandidates,
+    activePortfolio: input.resolution.activePortfolio
+  });
+  const rankedSummary = rankProjectScopedItems(input.normalized.summary, preferredIds, "summary");
+  const rankedWorkItems = rankProjectScopedItems(input.normalized.work_items, preferredIds, "work_item");
+  const rankedLessons = rankProjectScopedItems(input.normalized.lessons, preferredIds, "lesson");
+  const rankedDecisions = rankProjectScopedItems(input.normalized.decisions, preferredIds, "decision");
+  const rankedReferences = rankProjectScopedItems(input.normalized.references, preferredIds, "reference");
   const groupingSummary = {
     by_project_type: {} as Record<string, number>,
     by_provenance_type: {} as Record<string, number>
@@ -465,13 +494,15 @@ export function composeOpenRuksakEnvelope(input: {
 
       return compareNewest(String(left.updated_at), String(right.updated_at));
     })
-    .slice(0, 3);
+    .slice(0, 4);
 
   const recentLessons = rankedLessons.map((item) => ({
     id: item.id,
     title: item.title,
     summary: item.summary,
     updated_at: item.updated_at,
+    project_slug: item.project_slug,
+    project_type: item.project_type,
     provenance_type: item.provenance_type,
     source_project_slug: item.source_project_slug
   }));
@@ -481,6 +512,8 @@ export function composeOpenRuksakEnvelope(input: {
     title: item.title,
     summary: item.summary,
     updated_at: item.updated_at,
+    project_slug: item.project_slug,
+    project_type: item.project_type,
     provenance_type: item.provenance_type,
     source_project_slug: item.source_project_slug
   }));
@@ -490,6 +523,8 @@ export function composeOpenRuksakEnvelope(input: {
     title: item.title,
     summary: item.summary,
     updated_at: item.updated_at,
+    project_slug: item.project_slug,
+    project_type: item.project_type,
     provenance_type: item.provenance_type,
     source_project_slug: item.source_project_slug
   }));
@@ -499,13 +534,12 @@ export function composeOpenRuksakEnvelope(input: {
   });
   const guidance = buildGuidance({
     resolution: input.resolution,
-    agentStatus,
-    candidateProjects: input.resolution.candidateProjects
+    agentStatus
   });
   const summaryLines = buildSummaryLines({
     user: input.user,
-    resolvedProject,
-    rankedSummary,
+    resolution: input.resolution,
+    focusProject,
     activeWorkItems,
     lessonsCount: recentLessons.length,
     updatesCount: input.recentUpdates.length
@@ -513,10 +547,8 @@ export function composeOpenRuksakEnvelope(input: {
 
   const orientation = {
     user_priorities: currentPriorities,
-    likely_projects:
-      !input.resolution.projectId || input.resolution.clarificationRequired
-        ? input.resolution.candidateProjects.slice(0, 5)
-        : []
+    focus_candidates: input.resolution.focusCandidates,
+    active_portfolio: input.resolution.activePortfolio
   };
 
   const context = {
@@ -529,10 +561,7 @@ export function composeOpenRuksakEnvelope(input: {
     recent_updates: input.recentUpdates,
     grouping_summary: groupingSummary,
     suggested_next_actions: buildSuggestedNextActions({
-      mode: guidance.mode,
-      clarificationRequired: input.resolution.clarificationRequired,
-      candidateProjects: input.resolution.candidateProjects,
-      recommendedActions: input.resolution.recommendedActions,
+      resolution: input.resolution,
       currentPriorities: currentPriorities.map((item) => ({
         title: String(item.title),
         summary: typeof item.summary === "string" ? item.summary : null
@@ -549,26 +578,25 @@ export function composeOpenRuksakEnvelope(input: {
   return {
     metadata: {
       resolved_client: input.profile.label,
-      resolved_project: {
-        id: resolvedProject?.id ?? null,
-        name: resolvedProject?.name ?? null,
-        slug: resolvedProject?.slug ?? null,
-        project_type: resolvedProject?.project_type ?? null,
-        parent_project: resolvedProject
-          ? {
-              id: resolvedProject.parent_project_id
-            }
-          : null,
-        confidence: confidenceLabel(input.resolution.confidence),
-        resolution_source: input.resolution.resolutionSource
+      context_mode: input.resolution.mode,
+      focus: {
+        project_id: focusProject?.id ?? null,
+        project_name: focusProject?.name ?? null,
+        project_slug: focusProject?.slug ?? null,
+        project_type: focusProject?.project_type ?? null,
+        confidence: input.resolution.confidenceLabel,
+        source: input.resolution.resolutionSource,
+        session_focus_applied: input.resolution.sessionFocusApplied,
+        explicit_override_applied: input.resolution.explicitOverrideApplied
       },
       confidence: input.resolution.confidence,
       resolution_source: input.resolution.resolutionSource,
       resolution_explanation: input.resolution.resolutionExplanation,
       resolution_signal_breakdown: input.resolution.resolutionSignalBreakdown,
-      recommended_actions: input.resolution.recommendedActions,
       clarification_required: input.resolution.clarificationRequired,
-      candidate_projects: input.resolution.candidateProjects,
+      new_project_recommended: input.resolution.newProjectRecommended,
+      focus_candidates: input.resolution.focusCandidates,
+      active_portfolio: input.resolution.activePortfolio,
       structure_profile: input.structureProfile,
       generated_at: input.generatedAt
     },
@@ -581,14 +609,15 @@ export function composeOpenRuksakEnvelope(input: {
       workspace_url: input.workspaceUrl,
       paths: {
         workspace: "/app",
-        current_project: resolvedProject ? `/app?project=${resolvedProject.slug}` : null,
+        focus_project: focusProject ? `/app?project=${focusProject.slug}` : null,
         projects: "/app#projects",
         dashboard: "/app"
       }
     },
     client_brief: buildClientBrief({
       profile: input.profile.profile,
-      resolvedProject,
+      resolution: input.resolution,
+      focusProject,
       activeWorkItems,
       recentLessons,
       recentUpdates: input.recentUpdates

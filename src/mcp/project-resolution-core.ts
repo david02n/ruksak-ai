@@ -1,3 +1,10 @@
+export type ContextMode =
+  | "user"
+  | "portfolio"
+  | "project"
+  | "multi_project"
+  | "new_project_candidate";
+
 export type ProjectLike = {
   id: string;
   name: string;
@@ -22,9 +29,13 @@ export type CandidateProject = {
   signals: string[];
 };
 
-export type ProjectResolution = {
-  projectId: string | null;
+export type ContextResolution = {
+  mode: ContextMode;
+  focusProjectId: string | null;
+  focusCandidates: CandidateProject[];
+  activePortfolio: CandidateProject[];
   confidence: number;
+  confidenceLabel: "low" | "medium" | "high";
   resolutionSource: string;
   resolutionExplanation: string[];
   resolutionSignalBreakdown: {
@@ -33,13 +44,26 @@ export type ProjectResolution = {
     semantic: string[];
     affinity: string[];
   };
-  recommendedActions: string[];
-  candidateProjects: CandidateProject[];
   clarificationRequired: boolean;
+  newProjectRecommended: boolean;
+  sessionFocusApplied: boolean;
+  explicitOverrideApplied: boolean;
 };
 
 function clampConfidence(value: number) {
   return Math.max(0, Math.min(1, Number(value.toFixed(2))));
+}
+
+function confidenceLabel(value: number) {
+  if (value >= 0.9) {
+    return "high" as const;
+  }
+
+  if (value >= 0.7) {
+    return "medium" as const;
+  }
+
+  return "low" as const;
 }
 
 export function projectRepo(project: ProjectLike) {
@@ -121,141 +145,122 @@ function summarizeSignals(signals: string[]) {
     request_text_token_overlap: "request text overlapped the project language",
     request_text_description_overlap: "request text overlapped the project description",
     request_text_project_type_match: "request text implied the project type",
-    request_text_new_context: "request text suggests a separate context",
+    request_text_new_context: "request text suggests distinct new work",
+    request_text_plurality: "request text implies multiple active projects",
+    request_text_portfolio: "request text implies portfolio-level context",
     session_affinity: "recent session history points here",
-    current_project_affinity: "current Ruksak project points here"
+    current_project_affinity: "stored current project points here"
   };
 
   return signals.slice(0, 4).map((signal) => labels[signal] ?? signal.replaceAll("_", " "));
 }
 
-function buildRecommendedActions(input: {
-  topProject?: ProjectLike;
-  clarificationRequired: boolean;
-  candidateProjects: CandidateProject[];
-  topSignals: string[];
+function buildActivePortfolio(input: {
+  userProjects: ProjectLike[];
+  rankedCandidates: Array<{ project: ProjectLike; score: number; signals: string[] }>;
 }) {
-  const actions: string[] = [];
-  const topType = input.topProject?.projectType ?? "build";
-  const looksLikeSeparateContext = input.topSignals.includes("request_text_new_context");
+  const rankedById = new Map(
+    input.rankedCandidates.map((candidate) => [candidate.project.id, candidate])
+  );
 
-  if (input.clarificationRequired) {
-    if (looksLikeSeparateContext) {
-      actions.push("create_new_foundation_or_workstream");
-      actions.push("stay_in_user_level_context");
-    } else if (input.candidateProjects.length) {
-      actions.push("choose_existing_project");
-    } else {
-      actions.push("create_new_project");
-    }
-  } else if (input.topProject) {
-    actions.push("open_existing_project");
-    if (topType === "foundation" || topType === "workstream" || topType === "operating_model") {
-      actions.push("confirm_non_build_context");
-    }
-  } else {
-    actions.push("stay_in_user_level_context");
-  }
+  const portfolio = input.userProjects
+    .map((project) => {
+      const ranked = rankedById.get(project.id);
 
-  return actions;
+      return buildCandidateProject({
+        project,
+        score: ranked?.score ?? 0,
+        signals: ranked?.signals ?? []
+      });
+    })
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return right.score - left.score;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, 8);
+
+  return portfolio;
 }
 
-function shouldClarify(input: {
-  topScore: number;
-  nextScore?: number;
-  userProjectsCount: number;
-  topSignals: string[];
-}) {
-  const hasExplicitSignal = input.topSignals.some((signal) =>
-    ["explicit_project_id", "explicit_project_slug"].includes(signal)
-  );
-  if (hasExplicitSignal) {
-    return false;
-  }
-
-  const hasStrongInferenceSignal = input.topSignals.some((signal) =>
-    [
-      "repo_mapping",
-      "cwd_root_path",
-      "request_text_exact_project",
-      "request_text_repo_match",
-      "explicit_project_type",
-      "request_text_project_type_match"
-    ].includes(signal)
-  );
+function resolutionSourceFromSignals(signals: string[]) {
   const mostlyAffinity =
-    input.topSignals.length > 0 &&
-    input.topSignals.every((signal) => signalCategory(signal) === "affinity");
-
-  if (input.topSignals.includes("request_text_new_context")) {
-    return true;
-  }
+    signals.length > 0 && signals.every((signal) => signalCategory(signal) === "affinity");
 
   if (mostlyAffinity) {
-    return true;
+    return "affinity_inference";
   }
 
-  if (input.nextScore !== undefined && input.topScore - input.nextScore < 15) {
-    return true;
-  }
-
-  if (input.userProjectsCount === 1) {
-    return !(
-      hasStrongInferenceSignal ||
-      input.topSignals.includes("session_affinity") ||
-      input.topSignals.includes("current_project_affinity")
-    );
-  }
-
-  if (hasStrongInferenceSignal && input.topScore >= 48) {
-    return false;
-  }
-
-  if (
-    (input.topSignals.includes("session_affinity") ||
-      input.topSignals.includes("current_project_affinity")) &&
-    input.topScore >= 42
-  ) {
-    return false;
-  }
-
-  return input.topScore < 70;
+  return signals[0] ?? "user_level_context";
 }
 
 export function finalizeProjectResolution(input: {
   userProjects: ProjectLike[];
   rankedCandidates: Array<{ project: ProjectLike; score: number; signals: string[] }>;
-}): ProjectResolution {
-  const candidateProjects = input.rankedCandidates.slice(0, 5).map(buildCandidateProject);
+  pluralityLikely?: boolean;
+  portfolioLikely?: boolean;
+  newProjectLikely?: boolean;
+}): ContextResolution {
   const top = input.rankedCandidates[0];
   const next = input.rankedCandidates[1];
+  const focusCandidates = input.rankedCandidates.slice(0, 5).map(buildCandidateProject);
+  const activePortfolio = buildActivePortfolio(input);
 
   if (!top) {
+    const mode = input.newProjectLikely ? "new_project_candidate" : "user";
+    const explanation = input.newProjectLikely
+      ? ["No existing project matched strongly and the request looks like distinct new work."]
+      : ["No project signals were strong enough to resolve a focus project."];
+
     return {
-      projectId: null,
-      confidence: 0.2,
-      resolutionSource: "user_level_context",
-      resolutionExplanation: ["No project signals were strong enough to resolve a project."],
+      mode,
+      focusProjectId: null,
+      focusCandidates: [],
+      activePortfolio,
+      confidence: input.newProjectLikely ? 0.38 : 0.2,
+      confidenceLabel: confidenceLabel(input.newProjectLikely ? 0.38 : 0.2),
+      resolutionSource: mode === "new_project_candidate" ? "new_project_candidate" : "user_level_context",
+      resolutionExplanation: explanation,
       resolutionSignalBreakdown: {
         explicit: [],
         environment: [],
         semantic: [],
         affinity: []
       },
-      recommendedActions: ["stay_in_user_level_context", "create_new_project"],
-      candidateProjects: input.userProjects.slice(0, 5).map((project) => ({
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        project_type: project.projectType ?? "build",
-        parent_project_id: project.parentProjectId ?? null,
-        repo: projectRepo(project),
-        root_path: project.rootPath ?? null,
-        score: 0,
-        signals: []
-      })),
-      clarificationRequired: false
-    } satisfies ProjectResolution;
+      clarificationRequired: false,
+      newProjectRecommended: input.newProjectLikely ?? false,
+      sessionFocusApplied: false,
+      explicitOverrideApplied: false
+    };
+  }
+
+  const hasExplicitSignal = top.signals.some((signal) =>
+    ["explicit_project_id", "explicit_project_slug"].includes(signal)
+  );
+  const hasStrongEnvironmentSignal = top.signals.some((signal) =>
+    ["repo_mapping", "cwd_root_path", "request_text_exact_project", "request_text_repo_match"].includes(signal)
+  );
+  const mostlyAffinity =
+    top.signals.length > 0 && top.signals.every((signal) => signalCategory(signal) === "affinity");
+  const topDominant = !next || top.score - next.score >= 18;
+  const topStrong = top.score >= 58 || hasExplicitSignal || hasStrongEnvironmentSignal;
+
+  let mode: ContextMode;
+
+  if (input.newProjectLikely && top.score < 40) {
+    mode = "new_project_candidate";
+  } else if (input.pluralityLikely && focusCandidates.length > 1) {
+    mode = "multi_project";
+  } else if (!topDominant && focusCandidates.length > 1) {
+    mode = "multi_project";
+  } else if (topStrong && topDominant && !input.pluralityLikely && !mostlyAffinity) {
+    mode = "project";
+  } else if (input.portfolioLikely || mostlyAffinity || top.score < 58) {
+    mode = "portfolio";
+  } else {
+    mode = "project";
   }
 
   const confidenceBase =
@@ -266,38 +271,26 @@ export function finalizeProjectResolution(input: {
         : top.score >= 55
           ? 0.8
           : top.score >= 40
-            ? 0.72
-            : 0.45;
+            ? 0.68
+            : 0.5;
   const confidenceDeltaBoost = next
     ? Math.min(0.08, Math.max(0, (top.score - next.score) / 100))
     : 0.06;
   const confidence = clampConfidence(confidenceBase + confidenceDeltaBoost);
-  const clarificationRequired = shouldClarify({
-    topScore: top.score,
-    nextScore: next?.score,
-    userProjectsCount: input.userProjects.length,
-    topSignals: top.signals
-  });
-  const signalBreakdown = buildSignalBreakdown(top.signals);
-  const mostlyAffinity =
-    top.signals.length > 0 && top.signals.every((signal) => signalCategory(signal) === "affinity");
-  const resolutionSource = mostlyAffinity
-    ? "affinity_inference"
-    : top.signals[0] ?? "inference";
 
   return {
-    projectId: clarificationRequired ? null : top.project.id,
+    mode,
+    focusProjectId: mode === "project" ? top.project.id : null,
+    focusCandidates,
+    activePortfolio,
     confidence,
-    resolutionSource,
+    confidenceLabel: confidenceLabel(confidence),
+    resolutionSource: resolutionSourceFromSignals(top.signals),
     resolutionExplanation: summarizeSignals(top.signals),
-    resolutionSignalBreakdown: signalBreakdown,
-    recommendedActions: buildRecommendedActions({
-      topProject: clarificationRequired ? undefined : top.project,
-      clarificationRequired,
-      candidateProjects,
-      topSignals: top.signals
-    }),
-    candidateProjects,
-    clarificationRequired
-  } satisfies ProjectResolution;
+    resolutionSignalBreakdown: buildSignalBreakdown(top.signals),
+    clarificationRequired: false,
+    newProjectRecommended: mode === "new_project_candidate",
+    sessionFocusApplied: false,
+    explicitOverrideApplied: hasExplicitSignal
+  };
 }

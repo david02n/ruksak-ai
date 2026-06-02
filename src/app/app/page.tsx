@@ -160,9 +160,10 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     name: clerkUser.fullName
   });
 
-  const resolvedProject = view.envelope.metadata.resolved_project;
+  const contextMode = view.envelope.metadata.context_mode;
+  const focus = view.envelope.metadata.focus;
   const context = view.envelope.context;
-  const pageTitle = resolvedProject?.name ?? "Current context";
+  const pageTitle = focus.project_name ?? "Current context";
   const groupingSummary =
     "grouping_summary" in context
       ? context.grouping_summary
@@ -188,30 +189,32 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       <PostHogPageEvent
         event="workspace_viewed"
         properties={{
-          resolved_project_slug: resolvedProject?.slug ?? null,
-          resolved_project_type: resolvedProject?.project_type ?? null,
+          resolved_project_slug: focus.project_slug ?? null,
+          resolved_project_type: focus.project_type ?? null,
+          context_mode: contextMode,
           clarification_required: view.envelope.metadata.clarification_required
         }}
       />
       <div className="card-grid single-card-grid">
         <article className="card">
           <span className="card-tag">Current state</span>
-          <h3>What Ruksak would reopen right now</h3>
+          <h3>What Ruksak would route right now</h3>
           <p>{context.current_context_summary.join(" ")}</p>
           <div className="context-list">
             <div className="context-item">
               <div className="context-item-top">
                 <h3>Resolution</h3>
                 <div className="context-item-meta">
-                  {resolvedProject?.project_type ? <span>{resolvedProject.project_type}</span> : null}
+                  {focus.project_type ? <span>{focus.project_type}</span> : null}
+                  <span>{contextMode}</span>
                   <span>{view.envelope.metadata.confidence}</span>
                 </div>
               </div>
               <p>{view.envelope.metadata.resolution_explanation.join(". ")}</p>
               <div className="context-item-meta">
-                {view.envelope.metadata.recommended_actions.map((action) => (
+                {view.envelope.context.suggested_next_actions.map((action) => (
                   <span key={action}>{action}</span>
-                ))}
+                )).slice(0, 4)}
               </div>
             </div>
           </div>
@@ -241,8 +244,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           <div className="app-nav">
             <Link href={view.envelope.inspect.paths.workspace}>Workspace</Link>
             <Link href={view.envelope.inspect.paths.projects}>Projects</Link>
-            {view.envelope.inspect.paths.current_project ? (
-              <Link href={view.envelope.inspect.paths.current_project}>Current project</Link>
+            {view.envelope.inspect.paths.focus_project ? (
+              <Link href={view.envelope.inspect.paths.focus_project}>Focus project</Link>
             ) : null}
           </div>
           <p>{view.envelope.inspect.workspace_url}</p>
@@ -281,13 +284,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           />
         </article>
 
-        {view.envelope.metadata.clarification_required ? (
+        {view.envelope.metadata.focus_candidates.length ? (
           <article className="card">
-            <span className="card-tag">Clarification</span>
-            <h3>This context still needs confirmation</h3>
+            <span className="card-tag">Focus candidates</span>
+            <h3>Likely project matches for this request</h3>
             <p>{guidanceInstructions}</p>
             <div className="context-list">
-              {view.envelope.metadata.candidate_projects.map((project) => (
+              {view.envelope.metadata.focus_candidates.map((project) => (
                 <div className="context-item" key={project.id}>
                   <div className="context-item-top">
                     <h3>{project.name}</h3>
@@ -297,6 +300,27 @@ export default async function AppPage({ searchParams }: AppPageProps) {
                     </div>
                   </div>
                   <p>{project.signals.join(", ")}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+
+        {view.envelope.metadata.active_portfolio.length ? (
+          <article className="card">
+            <span className="card-tag">Active portfolio</span>
+            <h3>Projects currently most relevant in Ruksak</h3>
+            <div className="context-list">
+              {view.envelope.metadata.active_portfolio.map((project) => (
+                <div className="context-item" key={project.id}>
+                  <div className="context-item-top">
+                    <h3>{project.name}</h3>
+                    <div className="context-item-meta">
+                      <span>{project.project_type}</span>
+                      <span>{project.score}</span>
+                    </div>
+                  </div>
+                  <p>{project.signals.join(", ") || "Active portfolio context."}</p>
                 </div>
               ))}
             </div>
