@@ -20,6 +20,8 @@ _Generated 2026-06-03. Strategy layer only; delivery verdicts (`delivery:`) are 
   - ▶ Opp: Governed, proposal-backed writes + review queue (`opp-governed-writes-review`) · delivery: unknown
 - **Problem — No cross-repo / portfolio rollup** (`prob-cross-repo-portfolio`) ⚠ assumption
   - ▶ Opp: Portfolio rollup → portable-harness substrate (`opp-portable-harness-substrate`) · delivery: unknown
+- **Problem — Overloaded; no killer way to plan, review, research, coordinate with AI** (`prob-decision-overload`)
+  - ▶ Opp: CEO delegation loop with hidden-check verify (`opp-ceo-delegation-loop`) · delivery: unknown · plan: `docs/review-loop-build-plan.md`
 
 _No solutions or decisions yet — that's the delivery skill's job._
 
@@ -43,6 +45,8 @@ _No solutions or decisions yet — that's the delivery skill's job._
 | opp-decision-reasoning-layer | opportunity | draft | researched |
 | opp-governed-writes-review | opportunity | draft | researched |
 | opp-portable-harness-substrate | opportunity | **needs_user_input** ⚠ | assumption |
+| prob-decision-overload | problem | draft | supported |
+| opp-ceo-delegation-loop | opportunity | draft | supported |
 
 ## Gaps needing user input
 - `prob-cross-repo-portfolio` — pain is **assumption-level**, no external evidence. Validate before building.
