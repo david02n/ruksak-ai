@@ -18,6 +18,7 @@ _Generated 2026-06-03. Strategy layer only; delivery verdicts (`delivery:`) are 
   - ▶ Opp: First-class decision + reasoning layer (`opp-decision-reasoning-layer`) · delivery: unknown
 - **Problem — Unmanaged writes degrade context trust (rot)** (`prob-context-trust-rot`)
   - ▶ Opp: Governed, proposal-backed writes + review queue (`opp-governed-writes-review`) · delivery: unknown
+  - ▶ Opp: CEO delegation loop with hidden-check verify (`opp-ceo-delegation-loop`) · delivery: unknown
 - **Problem — No cross-repo / portfolio rollup** (`prob-cross-repo-portfolio`) ⚠ assumption
   - ▶ Opp: Portfolio rollup → portable-harness substrate (`opp-portable-harness-substrate`) · delivery: unknown
 - **Problem — Overloaded; no killer way to plan, review, research, coordinate with AI** (`prob-decision-overload`)

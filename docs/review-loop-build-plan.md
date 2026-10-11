@@ -23,7 +23,7 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 1. **Capture.** A voice or typed dump, or a problem stated in any Claude surface. It should take seconds.
 2. **Plan.** The org drafts a plan. Each item gets an owner, an output mode, a "done when" line and a hidden check.
 3. **Align.** David annotates the plan by voice or typing. Notes are held, nothing fires, and one holistic pass applies them all. This repeats until he's happy.
-4. **Approve.** Committing the plan is the act of delegation.
+4. **Approve.** Merging the plan's PR is the act of delegation. Commits on the review branch (drafts, notes, passes) never trigger delivery; only the merge to `main` does.
 5. **Deliver.** Each item runs through its owner, either a named skill or an agent prompt, via Claude Code (the GitHub Action, or an interactive session).
 6. **Verify.** A separate pass gets the hidden check and the delivered output, and nothing else. It returns pass or fail with evidence.
 7. **Approve progress.** A short digest: failures and blockers first, then items waiting for review, then auto items already done, with links.
@@ -49,7 +49,7 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 | **`ruksak-review` skill** | Generates files in the format; runs a pass (holistic revision, every note resolved); runs the verify pass | Works with no surface. Published as a plugin from this public repo so every repo's Action can install it. |
 | **Thin review surface** | Renders the file; anchored notes by voice or type; local autosave; offline; "ready for pass" | Starts from the existing Perchpeek actions review page, generalised. |
 | **Store and MCP** | Pointers, versions, note state and workspaces across repos; tools such as `create_document`, `add_note`, `send_for_pass` and `progress_digest` | Ruksak's existing Next.js app, Postgres, Clerk and OAuth MCP. Doc text stays in GitHub. |
-| **GitHub Action** | Runs passes and delivery inside the target repo using `CLAUDE_CODE_OAUTH_TOKEN` | Reads that repo's `CLAUDE.md`, skills and memory, so context comes free. |
+| **GitHub Action** | Runs passes on the review branch, and delivery only on merge to `main`, inside the target repo using `CLAUDE_CODE_OAUTH_TOKEN` | Reads that repo's `CLAUDE.md`, skills and memory, so context comes free. |
 
 **Where content lives**
 
