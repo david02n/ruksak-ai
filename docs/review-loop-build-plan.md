@@ -61,6 +61,37 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 
 **Workspaces mirror the Agent directory.** On every machine David has an `Agent/` directory with one folder per bucket of work: `Perchpeek`, `02N`, `Personal`, with room for more. GitHub mirrors the same structure, so a new bucket is just a new folder. Each bucket is a workspace, and a pass runs inside its folder so it picks up that bucket's own context. `Agent/Perchpeek` already mirrors `perchpeek-agent`.
 
+### Existing surface: the Perchpeek actions review tool (stage 0 findings, 2026-10-13)
+
+Source: David's transcript of the session that built it. The code itself (`tools/actions/review.py`, `review.html`) still needs reading.
+
+**What it is.** A local Python web server in `perchpeek-agent`, started with `python3 -m tools.actions.review` and served at `127.0.0.1:8765`. It reads and writes `memory/actions.yaml`, the source of truth, then rebuilds `actions.md` and `INBOX.md`, which are never edited directly.
+
+**What works, to keep:**
+- Tabs: Mine, Needs verdict (blocked, staged, or untouched 14+ days), Waiting, Delegated, Closed, All.
+- Search and filters by urgency, importance and theme. A "Hide confidential" switch for screen-sharing.
+- Source links on each action (Slack, Fathom, ClickUp, Google Docs, Figma, repo threads). Action ids such as `A-012` jump to that action.
+- Notes are dated and kept in their own field, so the pipeline never overwrites them.
+- Statuses: Open, Waiting (with who), Blocked, Done, Kill (optional reason). Editable urgency, importance, priority, due date, owner and next step.
+- Delegate: a `delegated` status with an optional prompt.
+- Keyboard: `j`/`k` move, `/` search, `d` done, `x` kill, `a` delegate, `n` note. Closing an item moves to the next.
+- Sync button: commits, pulls, pushes. It warns while edits are unsynced and stops without pushing on a conflict with the pipeline.
+
+**What's missing or breaks, to fix:**
+- **Local only.** It runs on one laptop, dies when its Terminal closes, and isn't reachable from another machine. This is the main gap against "works from any machine".
+- **Started by hand.** "Address already in use" errors and dead links when the server isn't running.
+- **Delegation is only a label.** The pipeline doesn't yet act on `delegated` items or read the prompt.
+- **Actions only.** No docs or plans, no anchored notes, no voice, no holistic pass, no hidden checks.
+- **Perchpeek only.** Wired to one repo's `actions.yaml` schema.
+
+**Existing record schema** (`memory/actions.yaml`, fixed field order): `id, title, owner, status, theme, type, urgency, importance, priority, due, waiting_on, next_step, why, thread, src, added, updated, evidence, stamps, notes, confidential`, plus the `delegated` status and its prompt.
+
+**What this changes in the plan:**
+- Stage 2 starts from this UI: same tabs, filters, keyboard and notes model, made hosted, with GitHub API writes in place of local git.
+- Edits to an action list apply straight away, as they do today. Batching and the holistic pass apply to docs and plans.
+- The plan item fields below are a superset of this schema, so `actions.yaml` becomes one list type the surface understands, not a separate format.
+- Its Sync safety rules (warn while unsynced, never push over a conflict) carry over unchanged.
+
 ### Review-file format (v0 draft, to be reconciled with the existing actions-review format)
 
 ```yaml
@@ -103,7 +134,7 @@ Each stage ships with its own hidden check, so we dogfood the method while build
 
 | # | Stage | Done when |
 |---|---|---|
-| 0 | **Recover the existing surface.** Pull the Perchpeek actions-review page and its format from `perchpeek-agent`. | Its format and features are documented here, and v0 above is reconciled with it. |
+| 0 | **Recover the existing surface.** Features and schema documented above (2026-10-13). Remaining: read `review.py` and `review.html`. | v0 format reconciled with `actions.yaml`, and the UI parts to reuse are listed. |
 | 1 | **Format and skill** | Inside Cowork, with no surface, a plan with 5 notes goes through one pass and every note comes back resolved. |
 | 2 | **Thin review surface:** render, anchored notes, voice or type, local autosave, offline, ready for pass | Annotate offline, reconnect, nothing is lost. Each note takes one gesture. |
 | 3 | **MCP and GitHub Action** (no database) | Annotate on one machine, the pass runs without opening Claude, and the result is reviewable on another machine. |
@@ -121,7 +152,8 @@ Each stage ships with its own hidden check, so we dogfood the method while build
 
 ## 8. Open items
 
-- **Existing actions-review surface:** its location, format and features. It couldn't be read from this session because `perchpeek-agent` is private. This is stage 0.
+- **Existing actions-review code:** features and schema are now documented. The code (`review.py`, `review.html`) still needs reading on the laptop.
+- **Delegated items:** the pipeline doesn't act on `delegated` yet. Decide whether to fix that in `perchpeek-delegate` now or let stage 4 replace it.
 - **02N and Personal buckets in GitHub:** decided they mirror the `Agent/` folder structure. To confirm: one private repo with a folder per bucket, or a repo per bucket like `perchpeek-agent`.
 - **Hidden checks repo:** name and access for the private checks repo used by the verify pass.
 
