@@ -7,7 +7,7 @@ evidence: supported
 delivery: unknown
 created_by: agent
 created: 2026-10-11
-updated: 2026-10-11
+updated: 2026-10-13
 source: prob-decision-overload, docs/review-loop-build-plan.md
 links:
   addresses: [prob-decision-overload, prob-context-trust-rot]
@@ -35,14 +35,14 @@ his time goes on decisions, not delivery.
 
 ## Why it's worth it
 - It extends a surface David already uses and finds helpful: the Perchpeek actions review page.
-- It reuses Ruksak's proposal and review data model (`proposed_updates`, `change_events`),
-  which is designed but has no UI yet.
+- It reuses Ruksak's existing auth, MCP and hosting. The review loop needs no database: git is
+  the version history and the notes file is the review state.
 - Hidden acceptance checks turn "governed writes" into a trust mechanism for delegation, not
   just for writes.
 
 ## Open assumptions and risks
 - An LLM grading against a rubric is weaker than a real test. Prefer hard checks where they're possible.
 - The surface must not turn into a third workspace to look after. It's a pane opened from a link.
-- Perchpeek content would pass through 02N-hosted infrastructure. Check this against employer policy.
+- GitHub is the only store, so work content never rests on 02N infrastructure. A pass still runs on David's personal Max token.
 
 See `docs/review-loop-build-plan.md` for the build plan.

@@ -1,6 +1,6 @@
 # Review and delegation loop: build plan
 
-Status: draft for David's review. Written 2026-10-11 from the chat and voice sessions of 10 and 11 October.
+Status: draft for David's review. Written 2026-10-11 from the chat and voice sessions of 10 and 11 October; updated 2026-10-13 (GitHub-only store, workspace buckets).
 Harness nodes: `prob-decision-overload`, `opp-ceo-delegation-loop`.
 
 ## 1. Purpose
@@ -40,6 +40,7 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 - **Not a third workspace.** Work stays in Cowork and Claude Code. The surface is a pane opened from a link and then closed.
 - **Every pass closes every note:** applied, declined with a reason, or turned into a question back. This stops notes drifting.
 - **Runs on David's Max subscription.** No API key and no server-side LLM.
+- **GitHub is the only store.** The surface reads from GitHub and writes back to GitHub. Work content never rests in a Ruksak database. A database is optional and additive, built only if something concrete needs it (e.g. cross-repo search or a portfolio rollup), never a prerequisite.
 
 ## 5. Architecture
 
@@ -48,7 +49,7 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 | **Review-file format** | A standard file for a doc, plan or action list, plus its notes | The real product. Any Claude skill can write and read it. |
 | **`ruksak-review` skill** | Generates files in the format; runs a pass (holistic revision, every note resolved); runs the verify pass | Works with no surface. Published as a plugin from this public repo so every repo's Action can install it. |
 | **Thin review surface** | Renders the file; anchored notes by voice or type; local autosave; offline; "ready for pass" | Starts from the existing Perchpeek actions review page, generalised. |
-| **Store and MCP** | Pointers, versions, note state and workspaces across repos; tools such as `create_document`, `add_note`, `send_for_pass` and `progress_digest` | Ruksak's existing Next.js app, Postgres, Clerk and OAuth MCP. Doc text stays in GitHub. |
+| **MCP** | Tools such as `create_document`, `add_note`, `send_for_pass` and `progress_digest`, all acting directly on GitHub | Ruksak's existing Next.js app, Clerk and OAuth MCP. Postgres is not in the path; optional later. |
 | **GitHub Action** | Runs passes on the review branch, and delivery only on merge to `main`, inside the target repo using `CLAUDE_CODE_OAUTH_TOKEN` | Reads that repo's `CLAUDE.md`, skills and memory, so context comes free. |
 
 **Where content lives**
@@ -56,7 +57,9 @@ He states a problem, and the org drafts the plan, proposes owners and writes a h
 - Docs and plans are markdown in the workspace's GitHub repo.
 - A review round is a branch plus a PR.
 - Notes are written into the branch as `.review/<doc>.notes.yaml` and removed on merge.
-- Ruksak's database holds pointers and state, not document text.
+- Versions are git history; note state is the notes file. Nothing needs a database.
+
+**Workspaces mirror the Agent directory.** On every machine David has an `Agent/` directory with one folder per bucket of work: `Perchpeek`, `02N`, `Personal`, with room for more. GitHub mirrors the same structure, so a new bucket is just a new folder. Each bucket is a workspace, and a pass runs inside its folder so it picks up that bucket's own context. `Agent/Perchpeek` already mirrors `perchpeek-agent`.
 
 ### Review-file format (v0 draft, to be reconciled with the existing actions-review format)
 
@@ -89,7 +92,7 @@ Plan items carry:
 
 ### Hidden acceptance checks
 
-- Written or approved when the plan is approved, and stored where the builder can't read them: the Ruksak store or a separate private checks repo.
+- Written or approved when the plan is approved, and stored where the builder can't read them: a separate private checks repo that only the verify pass is given.
 - The verify pass alone receives the check and the output.
 - Code items use real tests. Docs and plans use a rubric of checkable statements, for example "every claim is cited" or "no commitments David didn't approve".
 - Caveat: a rubric graded by a model catches missing pieces and obvious faking, not subtle errors. Prefer hard checks wherever an item allows one.
@@ -103,10 +106,10 @@ Each stage ships with its own hidden check, so we dogfood the method while build
 | 0 | **Recover the existing surface.** Pull the Perchpeek actions-review page and its format from `perchpeek-agent`. | Its format and features are documented here, and v0 above is reconciled with it. |
 | 1 | **Format and skill** | Inside Cowork, with no surface, a plan with 5 notes goes through one pass and every note comes back resolved. |
 | 2 | **Thin review surface:** render, anchored notes, voice or type, local autosave, offline, ready for pass | Annotate offline, reconnect, nothing is lost. Each note takes one gesture. |
-| 3 | **Store, MCP and GitHub Action** | Annotate on one machine, the pass runs without opening Claude, and the result is reviewable on another machine. |
+| 3 | **MCP and GitHub Action** (no database) | Annotate on one machine, the pass runs without opening Claude, and the result is reviewable on another machine. |
 | 4 | **Delegation:** owner and output mode per item; send each item to a skill or agent prompt | A committed plan with mixed owners runs. Auto items land without David; review items come back. |
 | 5 | **Verify pass and progress digest** | A deliberately faked delivery fails its hidden check and appears at the top of the digest. |
-| 6 | **Workspaces:** `perchpeek-agent` plus 02N and personal repos | The same surface reviews a Perchpeek action list and an 02N plan. |
+| 6 | **Workspaces:** one per `Agent/` bucket (Perchpeek, 02N, Personal) | The same surface reviews a Perchpeek action list and an 02N plan; adding a bucket needs only a new folder. |
 
 ## 7. Housekeeping before stage 3
 
@@ -119,8 +122,13 @@ Each stage ships with its own hidden check, so we dogfood the method while build
 ## 8. Open items
 
 - **Existing actions-review surface:** its location, format and features. It couldn't be read from this session because `perchpeek-agent` is private. This is stage 0.
-- **Where 02N and personal notes live:** an existing repo, or a new private `david02n/notes`.
-- **Perchpeek content passing through 02N-hosted Ruksak** and David's personal subscription: check employer policy. Mitigation: keep doc text in GitHub only.
+- **02N and Personal buckets in GitHub:** decided they mirror the `Agent/` folder structure. To confirm: one private repo with a folder per bucket, or a repo per bucket like `perchpeek-agent`.
+- **Hidden checks repo:** name and access for the private checks repo used by the verify pass.
+
+**Closed**
+
+- Where notes live: GitHub, mirroring `Agent/<bucket>/` (2026-10-13).
+- Perchpeek data on 02N hosting: no longer applies, since content stays in GitHub and never touches a Ruksak database (2026-10-13). A pass still runs on David's personal Max token via the Action.
 - **Harness Builder visualisation:** out of scope. Store plans and links so its flow view could read them later.
 - **GitHub Actions minutes on private repos,** and subscription usage per pass: monitor once stage 3 runs.
 
@@ -129,4 +137,5 @@ Each stage ships with its own hidden check, so we dogfood the method while build
 - Visualisation and flow views (Harness Builder).
 - A standalone app that becomes a workspace.
 - A server-side LLM or API key.
+- A database as a prerequisite.
 - Rich-text editing. Markdown plus notes covers it.
